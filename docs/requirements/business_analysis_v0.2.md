@@ -1,6 +1,6 @@
 # Business Analysis Document
 
-> **Version notice:** Input document had no version number. Treated as v0.1. Please confirm.
+> **Version:** v0.2
 
 ---
 
@@ -102,14 +102,14 @@
 
 ## 7. Risks
 
-| Risk | Impact | Probability | Mitigation Strategy |
-|---|---|---|---|
-| Free-text parsing ambiguity causes incorrect data storage | High — corrupts user history | High — natural language is inherently ambiguous | **[Open]** Needs a defined parsing strategy (out of scope for this document) |
-| Parameter name collision / duplicates per user | Medium — fragmented history | High — users are inconsistent typers | Needs a deduplication or alias mechanism (not in scope yet) |
-| Telegram API policy change restricts bot behavior | High — full service disruption | Low–Medium | No mitigation in scope; acknowledged dependency |
-| Cross-user data leak due to implementation error | Critical — trust destruction | Low (if built carefully) | Strict user isolation requirement must be enforced and tested |
-| No data export → total data loss on account deletion | Medium — user data unrecoverable | Medium | No export is in scope — this is an accepted risk, should be explicit |
-| GDPR / data privacy non-compliance | High — legal liability | Unknown — depends on user geography | Not addressed; requires legal clarification before launch |
+| ID    | Risk | Impact | Probability | Mitigation Strategy |
+|-------|---|---|---|---|
+| R-001 | Free-text parsing ambiguity causes incorrect data storage | High — corrupts user history | High — natural language is inherently ambiguous | **[Open]** Needs a defined parsing strategy (out of scope for this document) |
+| R-002 | Parameter name collision / duplicates per user | Medium — fragmented history | High — users are inconsistent typers | Needs a deduplication or alias mechanism (not in scope yet) |
+| R-003 | Telegram API policy change restricts bot behavior | High — full service disruption | Low–Medium | No mitigation in scope; acknowledged dependency |
+| R-004 | Cross-user data leak due to implementation error | Critical — trust destruction | Low (if built carefully) | Strict user isolation requirement must be enforced and tested |
+| R-005 | No data export → total data loss on account deletion | Medium — user data unrecoverable | Medium | No export is in scope — this is an accepted risk, should be explicit |
+| R-006 | GDPR / data privacy non-compliance | High — legal liability | Unknown — depends on user geography | Not addressed; requires legal clarification before launch |
 
 ---
 
@@ -132,7 +132,7 @@ v0.2
 
 ## Based on
 
-v0.1 (unversioned source document treated as v0.1 — **please confirm**)
+version v0.2 was initial version
 
 ## Changes Introduced
 

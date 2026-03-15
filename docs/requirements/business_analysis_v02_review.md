@@ -162,3 +162,11 @@ The document asserts Telegram is appropriate because the audience already uses i
 **→ Iterate (Substantial Clarification Needed)**
 
 The document scores **32 / 50**, placing it in the "Weak strategic clarity — revision required" band. It demonstrates structural discipline and intellectual honesty but cannot proceed to system modeling with an unvalidated core hypothesis, undefined metric targets, unknown monetization intent, and unresolved regulatory exposure. The four blocking uncertainties (U-001 through U-004) must be resolved through stakeholder engagement before the next iteration is submitted for review.
+
+- The economic justification is absent.
+- The core hypothesis is unvalidated with no validation plan.
+- All metric targets are undefined, making success evaluation impossible.
+- The product intent (commercial vs. personal) is unresolved and affects every downstream decision.
+- A High/High risk (parsing) has no business-layer mitigation direction.
+
+The document should be returned for revision targeting items 1, 2, 3, and 6 from §11 as the highest-priority unblocking actions. A v0.3 can be accepted as a baseline for system modeling only if those four items are resolved with specific, stakeholder-confirmed answers.
