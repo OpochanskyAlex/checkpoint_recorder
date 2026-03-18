@@ -1,6 +1,6 @@
 # System Context Document
 
-> **Version:** v0.1
+> **Version:** v0.5
 > **Status:** Initial draft — ready for architecture review
 > **Based On:** Business Analysis v0.5
 
