@@ -80,20 +80,20 @@ A user can send a message to the bot, be registered automatically, and log a num
 
 **Functional Scope:**
 
-| Req | Requirement (verbatim) | Included / Partial | Notes |
-|-----|------------------------|--------------------|-------|
-| R-1 | FR-1: Idempotent User Registration (Onboarding) | Included | Full atomic check-and-create; onboarding message dispatched; fallback to FR-4 if first message is parseable |
-| R-2 | FR-2: Account Status Gate | Included | Guard runs on every inbound message from this stage forward |
-| R-3 | FR-3: Conversation State Routing | Partial | Idle state and PendingPeriodicity routing only; PendingDisambiguation, PendingMetricDeletionConfirmation, PendingRestorationConfirmation deferred to later stages |
-| R-4 | FR-4: Standard Data Entry (Auto-Parsed) | Included | Full happy path including auto-create flow, atomic Entry creation, Alert Engine trigger stub (no alerts yet), parse_outcome_event emission, confirmation dispatch |
-| R-6 | FR-6: Metric Auto-Creation (on first entry for unrecognized name) | Included | Periodicity prompt, PendingPeriodicity state, atomic Metric + Entry creation, SU-009 timeout cleanup stub |
-| R-7 | FR-7: Explicit Metric Creation | Included | /metric_create command with full field validation and confirmation |
-| NFR-6 | Entry immutability — no UPDATE on Entry table | Included | Schema enforced from first migration; measurable from this stage |
-| NFR-7 | Per-user data isolation — all queries scoped by internal_user_id | Included | Applied to all queries from first persistence layer; measurable from this stage |
-| NFR-8 | Telegram token confidentiality | Included | Environment-variable loading enforced from initial setup; measurable from this stage |
-| NFR-10 | 100% of NLP attempts emit parse_outcome_event | Included | parse_outcome_event emitted on every auto-parse outcome; measurable from this stage |
-| NFR-15 | Stable at 20 concurrent users | Partial | Concurrency controls (SQLite WAL, atomic check-and-create) in place; load verification deferred to Stage 4 |
-| NFR-18 | Zero duplicate (internal_user_id, metric_name) pairs | Included | Unique constraint in schema from first migration; measurable from this stage |
+| Req | Requirement (verbatim) | Included / Partial | Notes                                                                                                                                                                  |
+|-----|------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| R-1 | FR-1: Idempotent User Registration (Onboarding) | Included | Full atomic check-and-create; onboarding message dispatched; fallback to FR-4 if first message is parseable                                                            |
+| R-2 | FR-2: Account Status Gate | Included | Guard runs on every inbound message from this stage forward                                                                                                            |
+| R-3 | FR-3: Conversation State Routing | Partial | Idle stasave te and PendingPeriodicity routing only; PendingDisambiguation, PendingMetricDeletionConfirmation, PendingRestorationConfirmation deferred to later stages |
+| R-4 | FR-4: Standard Data Entry (Auto-Parsed) | Included | Full happy path including auto-create flow, atomic Entry creation, Alert Engine trigger stub (no alerts yet), parse_outcome_event emission, confirmation dispatch      |
+| R-6 | FR-6: Metric Auto-Creation (on first entry for unrecognized name) | Included | Periodicity prompt, PendingPeriodicity state, atomic Metric + Entry creation, SU-009 timeout cleanup stub                                                              |
+| R-7 | FR-7: Explicit Metric Creation | Included | /metric_create command with full field validation and confirmation                                                                                                     |
+| NFR-6 | Entry immutability — no UPDATE on Entry table | Included | Schema enforced from first migration; measurable from this stage                                                                                                       |
+| NFR-7 | Per-user data isolation — all queries scoped by internal_user_id | Included | Applied to all queries from first persistence layer; measurable from this stage                                                                                        |
+| NFR-8 | Telegram token confidentiality | Included | Environment-variable loading enforced from initial setup; measurable from this stage                                                                                   |
+| NFR-10 | 100% of NLP attempts emit parse_outcome_event | Included | parse_outcome_event emitted on every auto-parse outcome; measurable from this stage                                                                                    |
+| NFR-15 | Stable at 20 concurrent users | Partial | Concurrency controls (SQLite WAL, atomic check-and-create) in place; load verification deferred to Stage 4                                                             |
+| NFR-18 | Zero duplicate (internal_user_id, metric_name) pairs | Included | Unique constraint in schema from first migration; measurable from this stage                                                                                           |
 
 **Working Condition:**
 A real Telegram user can send a free-text message containing a numeric value to the bot, be registered on first contact, receive an onboarding message, and receive a confirmation that the entry was logged. A user can also issue /metric_create to explicitly define a metric before entering data. The bot rejects messages from unknown states gracefully and persists all state across restarts.

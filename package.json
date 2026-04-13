@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@webhooksite/cli": "^0.2.7"
+  }
+}

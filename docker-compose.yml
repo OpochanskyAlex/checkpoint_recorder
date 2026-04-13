@@ -1,0 +1,36 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: checkpoint
+      POSTGRES_PASSWORD: checkpoint
+      POSTGRES_DB: checkpoint
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U checkpoint -d checkpoint"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    env_file: .env
+    environment:
+      # Override DB URLs to point at the local postgres container.
+      # Your .env Supabase URLs are ignored when running via docker-compose.
+      DATABASE_URL: postgresql+asyncpg://checkpoint:checkpoint@db:5432/checkpoint
+      DATABASE_SYNC_URL: postgresql+psycopg2://checkpoint:checkpoint@db:5432/checkpoint
+      # POLLING_MODE comes from your .env file — set true for polling, false for webhook
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+
+volumes:
+  postgres_data:
