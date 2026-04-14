@@ -14,6 +14,7 @@ from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_applicati
 
 from checkpoint_recorder.config import settings
 from checkpoint_recorder.bot import make_bot, dp, register_all
+from checkpoint_recorder.components.scheduler import make_scheduler
 from checkpoint_recorder.db.engine import engine
 
 
@@ -40,11 +41,14 @@ async def run_polling() -> None:
     log = structlog.get_logger()
     bot = make_bot()
     register_all(dp)
+    scheduler = make_scheduler(settings.scheduler_interval_hours)
+    scheduler.start()
     log.info("polling_started")
     try:
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
+        scheduler.shutdown(wait=False)
         await bot.session.close()
         await engine.dispose()
         log.info("polling_stopped")
@@ -54,9 +58,11 @@ def build_webhook_app() -> web.Application:
     settings.require_webhook()
     bot = make_bot()
     register_all(dp)
+    scheduler = make_scheduler(settings.scheduler_interval_hours)
 
     async def on_startup(app: web.Application) -> None:
         log = structlog.get_logger()
+        scheduler.start()
         await bot.set_webhook(
             url=settings.webhook_full_url,
             secret_token=settings.webhook_secret,
@@ -66,6 +72,7 @@ def build_webhook_app() -> web.Application:
 
     async def on_shutdown(app: web.Application) -> None:
         log = structlog.get_logger()
+        scheduler.shutdown(wait=False)
         await bot.delete_webhook()
         await bot.session.close()
         await engine.dispose()
