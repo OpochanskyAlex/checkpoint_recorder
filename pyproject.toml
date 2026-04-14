@@ -17,6 +17,8 @@ dependencies = [
     "structlog>=24.0,<26",
     "rapidfuzz>=3.10,<4",
     "pint>=0.24,<1",
+    "matplotlib>=3.8,<4",
+    "apscheduler>=3.10,<4",
 ]
 
 [project.optional-dependencies]
