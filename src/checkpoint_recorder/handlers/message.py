@@ -15,6 +15,7 @@ from checkpoint_recorder.components.entry_processor import (
 from checkpoint_recorder.components.parse_attempt_manager import (
     handle_disambiguation_response,
 )
+from checkpoint_recorder.handlers.account import handle_restoration_confirmation
 from checkpoint_recorder.handlers.metric_management import (
     handle_metric_deletion_confirmation,
 )
@@ -89,12 +90,14 @@ async def handle_text(
 
     # FR-3: route by conversation state
     if state == ConversationStateEnum.PendingPeriodicity:
-        reply = await handle_periodicity_response(session, user, conv_state, message.text)
+        reply = await handle_periodicity_response(
+            session, user, conv_state, message.text, bot=message.bot
+        )
         await message.answer(reply)
 
     elif state == ConversationStateEnum.PendingDisambiguation:
         reply = await handle_disambiguation_response(
-            session, user, conv_state, message.text, message.date
+            session, user, conv_state, message.text, message.date, bot=message.bot
         )
         await message.answer(reply)
 
@@ -105,15 +108,13 @@ async def handle_text(
         await message.answer(reply)
 
     elif state == ConversationStateEnum.PendingRestorationConfirmation:
-        # Stage 3 — not yet implemented
-        await message.answer(
-            "Your account is pending deletion. Restoration support coming soon."
-        )
+        reply = await handle_restoration_confirmation(session, user, conv_state, message.text)
+        await message.answer(reply)
 
     else:
         # Idle — attempt data entry (FR-4)
         reply, stored = await process_entry(
-            session, user, conv_state, message.text, message.date
+            session, user, conv_state, message.text, message.date, bot=message.bot
         )
         # AC-2 (FR-5 / NFR-17): if process_entry created a ParseAttempt
         # (state is now PendingDisambiguation), wrap the prompt dispatch so

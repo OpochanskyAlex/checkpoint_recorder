@@ -67,6 +67,6 @@ async def cmd_deferred_categorize(
 
     pa_id, metric_name = args[0], args[1]
     reply, success = await categorize_deferred(
-        session, user, pa_id, metric_name, message.date
+        session, user, pa_id, metric_name, message.date, bot=message.bot
     )
     await message.answer(reply)

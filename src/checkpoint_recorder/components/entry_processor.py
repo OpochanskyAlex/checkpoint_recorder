@@ -53,6 +53,7 @@ async def process_entry(
     conv_state: ConversationState,
     text: str,
     message_date: datetime,
+    bot=None,
 ) -> tuple[str, bool]:
     """
     Parse and store a data entry for an Idle user.
@@ -145,6 +146,11 @@ async def process_entry(
     )
     await session.commit()
 
+    # Alert evaluation (FR-12) — after Entry is durable; never blocks or rolls back Entry
+    if bot is not None:
+        from checkpoint_recorder.components.alert_engine import evaluate_alerts
+        await evaluate_alerts(session, bot, entry, metric, user)
+
     unit_str = f" {metric.unit}" if metric.unit else ""
     return f"✓ Logged <b>{result.value}{unit_str}</b> for <b>{metric.name}</b>", True
 
@@ -154,6 +160,7 @@ async def handle_periodicity_response(
     user: InternalUser,
     conv_state: ConversationState,
     text: str,
+    bot=None,
 ) -> str:
     """
     Process the user's periodicity selection while in PendingPeriodicity state.
@@ -226,6 +233,11 @@ async def handle_periodicity_response(
         },
     )
     await session.commit()
+
+    # Alert evaluation (FR-12) — after Entry is durable; never blocks or rolls back Entry
+    if bot is not None:
+        from checkpoint_recorder.components.alert_engine import evaluate_alerts
+        await evaluate_alerts(session, bot, entry, metric, user)
 
     unit_str = f" {metric.unit}" if metric.unit else ""
     return (

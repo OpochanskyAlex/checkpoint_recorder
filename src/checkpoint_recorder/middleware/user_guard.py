@@ -94,13 +94,58 @@ class UserSessionGuardMiddleware(BaseMiddleware):
             await session.commit()
 
         elif existing.account_status == AccountStatus.PendingDeletion:
-            # Stage 3 will route to restoration; for now inform user
-            if isinstance(event, Update) and event.message:
-                await event.message.answer(
-                    "Your account is scheduled for deletion.\n"
-                    "Account restoration will be available in a future update."
+            # FR-2 / FR-17: route PendingDeletion users exclusively to restoration flow
+            user = existing
+
+            # Load or create ConversationState
+            conv_row = await session.execute(
+                select(ConversationState).where(
+                    ConversationState.internal_user_id == user.id
                 )
-            return None
+            )
+            conv_state: ConversationState | None = conv_row.scalar_one_or_none()
+            if conv_state is None:
+                conv_state = ConversationState(
+                    internal_user_id=user.id,
+                    state=ConversationStateEnum.Idle,
+                )
+                session.add(conv_state)
+                await session.flush()
+
+            if conv_state.state != ConversationStateEnum.PendingRestorationConfirmation:
+                # First contact in PendingDeletion — dispatch prompt and enter restoration state
+                conv_state.state = ConversationStateEnum.PendingRestorationConfirmation
+                conv_state.state_data = None
+                await session.commit()
+
+                if isinstance(event, Update) and event.message:
+                    deadline = (
+                        user.deletion_scheduled_timestamp.strftime("%Y-%m-%d %H:%M UTC")
+                        if user.deletion_scheduled_timestamp
+                        else "soon"
+                    )
+                    await event.message.answer(
+                        f"⚠️ Your account is scheduled for deletion "
+                        f"(deadline: <b>{deadline}</b>).\n\n"
+                        "Reply <b>yes</b> to restore your account and keep all your data,\n"
+                        "or let the timer expire to proceed with deletion."
+                    )
+                return None  # Prompt dispatched; wait for the user's next message
+
+            # State is already PendingRestorationConfirmation — route to handler
+            data["user"] = user
+            data["conv_state"] = conv_state
+            data["is_new_user"] = False
+
+            result = await handler(event, data)
+
+            try:
+                user.last_interaction_timestamp = datetime.now(timezone.utc)
+                await session.commit()
+            except Exception:
+                log.exception("last_interaction_update_failed", user_id=str(user.id))
+
+            return result
 
         else:
             user = existing

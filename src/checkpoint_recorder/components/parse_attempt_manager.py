@@ -89,6 +89,7 @@ async def handle_disambiguation_response(
     conv_state: ConversationState,
     text: str,
     message_date: datetime,
+    bot=None,
 ) -> str:
     """
     Process user's response to a disambiguation prompt (FR-5).
@@ -245,6 +246,11 @@ async def handle_disambiguation_response(
     )
     await session.commit()
 
+    # Alert evaluation (FR-12) — after Entry is durable; never blocks or rolls back Entry
+    if bot is not None:
+        from checkpoint_recorder.components.alert_engine import evaluate_alerts
+        await evaluate_alerts(session, bot, entry, metric, user)
+
     unit_str = f" {metric.unit}" if metric.unit else ""
     value = pa_value_from_raw(pa.raw_input)
     value_str = str(value) if value is not None else "?"
@@ -279,6 +285,7 @@ async def categorize_deferred(
     parse_attempt_id: str,
     metric_name: str,
     message_date: datetime,
+    bot=None,
 ) -> tuple[str, bool]:
     """
     Late categorization of a Deferred ParseAttempt (FR-15).
@@ -339,6 +346,11 @@ async def categorize_deferred(
         },
     )
     await session.commit()
+
+    # Alert evaluation (FR-12) — after Entry is durable; never blocks or rolls back Entry
+    if bot is not None:
+        from checkpoint_recorder.components.alert_engine import evaluate_alerts
+        await evaluate_alerts(session, bot, entry, metric, user)
 
     unit_str = f" {metric.unit}" if metric.unit else ""
     value = pa_value_from_raw(pa.raw_input)
