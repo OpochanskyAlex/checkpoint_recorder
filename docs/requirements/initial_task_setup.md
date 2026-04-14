@@ -47,6 +47,10 @@ Create a Telegram bot that:
 
 ## 6. High-Level Functionality
 
+### 6.0 Help
+
+The bot must respond to a `/help` command with a formatted list of all available commands and a brief description of each.
+
 ### 6.1 Data Input
 
 The user writes to the bot in free form:

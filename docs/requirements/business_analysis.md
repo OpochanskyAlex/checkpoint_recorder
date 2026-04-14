@@ -73,6 +73,8 @@
   - *Actual practice:* Data is stored for the **lifetime** of the service beyond the guaranteed window, unless the user explicitly deletes their account.
   - This policy must be communicated to users at onboarding.
 
+- **Command discoverability:** The system must provide in-context documentation of all available commands via a `/help` command. This is required to reduce user confusion and support self-service onboarding without external documentation.
+
 **Out-of-scope items with rationale:**
 
 | Out-of-Scope Item | Rationale |
@@ -196,11 +198,16 @@ All open questions are resolved.
 
 ## Version
 
-v0.5
+v0.6
 
 ## Based on
 
-v0.4
+v0.5
+
+## Changes Introduced in v0.6
+
+- Added command discoverability constraint (§4): system must provide a `/help` command listing all available commands with descriptions
+- Decision Log: D-015 added
 
 ## Changes Introduced in v0.5
 
@@ -229,6 +236,7 @@ v0.4
 | D-012 | Parse failure uses manual selection fallback | Stakeholder response to Q-009; preserves data integrity over silent failure | v0.5 | Confirmed |
 | D-013 | Data retention: 1 year guaranteed, lifetime in practice | Stakeholder response to Q-010 | v0.5 | Confirmed |
 | D-014 | Metric periodicity set at creation time by user | Stakeholder response to Q-011; periodicity is explicit, not inferred | v0.5 | Confirmed |
+| D-015 | `/help` command is a required feature for in-context discoverability | Without self-service documentation, users unfamiliar with commands will abandon the bot rather than experiment; reduces onboarding friction | v0.6 | Confirmed |
 
 ---
 

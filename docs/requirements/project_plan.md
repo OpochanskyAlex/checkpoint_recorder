@@ -42,6 +42,7 @@
 | NFR-16 | All raw_input fields purged on cascade deletion |
 | NFR-17 | Zero dangling Pending ParseAttempts after detection window |
 | NFR-18 | Zero duplicate (internal_user_id, metric_name) pairs |
+| R-19 | FR-19: Help Command |
 
 ---
 
@@ -66,6 +67,7 @@
 | R-16 | R-1, R-2, R-3 | Account Deletion requires a registered user, status gate, and state routing |
 | R-17 | R-16 | Restoration is only reachable from PendingDeletion state |
 | R-18 | R-1, R-5, R-6, R-16 | Purge jobs target records created by registration, ParseAttempts, periodicity flows, and deletion requests |
+| R-19 | None | Help command is stateless; no prior functionality required |
 
 ---
 
@@ -94,6 +96,7 @@ A user can send a message to the bot, be registered automatically, and log a num
 | NFR-10 | 100% of NLP attempts emit parse_outcome_event | Included | parse_outcome_event emitted on every auto-parse outcome; measurable from this stage                                                                                    |
 | NFR-15 | Stable at 20 concurrent users | Partial | Concurrency controls (SQLite WAL, atomic check-and-create) in place; load verification deferred to Stage 4                                                             |
 | NFR-18 | Zero duplicate (internal_user_id, metric_name) pairs | Included | Unique constraint in schema from first migration; measurable from this stage                                                                                           |
+| R-19 | FR-19: Help Command | Included | `/help` returns a static list of all available commands and descriptions; no state side-effects; available to unregistered users |
 
 **Working Condition:**
 A real Telegram user can send a free-text message containing a numeric value to the bot, be registered on first contact, receive an onboarding message, and receive a confirmation that the entry was logged. A user can also issue /metric_create to explicitly define a metric before entering data. The bot rejects messages from unknown states gracefully and persists all state across restarts.
@@ -115,6 +118,7 @@ A runnable single-process bot binary connected to a SQLite database. A developer
 10. Given any query in the persistence layer, when executed, then internal_user_id is present as a filter on every query touching user-owned data.
 11. Given the running process, when the environment is inspected (source code, log output, observability events), then the Telegram bot token does not appear in any of them.
 12. Given any NLP parsing attempt, when the outcome is determined, then a parse_outcome_event is emitted and raw_input does not appear in the event payload.
+13. Given any user (registered or unregistered) sends `/help`, when the command is processed, then a formatted message listing all available commands with a brief description of each is returned; no state change occurs and no event is emitted.
 
 **Excluded from this stage:**
 R-5 (Ambiguous Entry), R-8 (Metric Listing), R-9 (Archival/Reactivation), R-10 (Metric Deletion), R-11 (Alert Configuration), R-12 (Alert Evaluation), R-13 (Alert Re-arming), R-14 (Chart Generation), R-15 (Late Categorization), R-16 (Account Deletion), R-17 (Account Restoration), R-18 (Scheduled Purge), PendingDisambiguation/PendingMetricDeletionConfirmation/PendingRestorationConfirmation routing branches of R-3.
@@ -264,7 +268,7 @@ Nothing. All requirements are covered by the end of this stage.
 
 | Stage | Title | Requirements Covered | Key Deliverable |
 |-------|-------|----------------------|-----------------|
-| 1 | Core Registration and Auto-Parsed Entry | R-1, R-2, R-3 (partial), R-4, R-6, R-7, NFR-6, NFR-7, NFR-8, NFR-10, NFR-15 (partial), NFR-18 | Runnable bot: register and log entries end-to-end |
+| 1 | Core Registration and Auto-Parsed Entry | R-1, R-2, R-3 (partial), R-4, R-6, R-7, R-19, NFR-6, NFR-7, NFR-8, NFR-10, NFR-15 (partial), NFR-18 | Runnable bot: register and log entries end-to-end |
 | 2 | Ambiguous Entry, Metric Management, and Deferred Categorization | R-3 (partial completion), R-5, R-8, R-9, R-10, R-15, NFR-2, NFR-9 (completion), NFR-16, NFR-17 | Full metric catalogue management and ambiguity resolution |
 | 3 | Alerting, Account Lifecycle, and Restoration | R-3 (completion), R-11, R-12, R-13, R-16, R-17, NFR-11, NFR-14 (partial) | Threshold alerts, notifications, and account grace period flow |
 | 4 | Chart Generation, Scheduled Purge, and Observability Completion | R-14, R-18, NFR-1, NFR-2, NFR-3, NFR-4, NFR-5, NFR-12, NFR-13, NFR-14 (completion), NFR-15 (completion) | Complete production system with charts, purge scheduler, and load verification |
@@ -312,13 +316,21 @@ All requirements placed.
 ## Governance Block
 
 ### Plan Version
-v1.0
+v1.1
 
 ### Based On
-Requirements as provided (verbatim, no changes). Source: implementation_spec.md v1.0, dated 2026-04-12.
+System Context Document v0.8 (Business Analysis v0.6). Previous plan based on implementation_spec.md v1.0.
 
 ### Change Summary
-First version.
+
+**v1.1** — Added FR-19: Help Command.
+- R-19 added to Requirements Index (§1).
+- R-19 added to Dependency Map (§2) — no dependencies.
+- R-19 added to Stage 1 functional scope table and acceptance criteria (AC-13).
+- Stage 1 row in Stage Summary Table (§4) updated to include R-19.
+- Decision Log: D-6 added.
+
+**v1.0** — First version.
 
 ### Decision Log
 
@@ -329,3 +341,4 @@ First version.
 | D-3 | NFRs assigned to the earliest stage at which they first become measurable or verifiable | NFRs are cross-cutting; assigning them to the stage where they are first exercised gives the earliest possible feedback signal | All stages |
 | D-4 | Stage count set to four | Three stages produced unbalanced load (Stage 2 was too large); five stages produced micro-stages with insufficient functional density; four stages balance scope and coherence | All stages |
 | D-5 | MetricActivityStatus treated as a computed view, not a persisted row | FR-8 describes only a derived computation; storing it separately would require trigger logic not described in any requirement; see Planning Assumption 6 | Stage 2 |
+| D-6 | FR-19 (Help Command) placed in Stage 1 | Help is stateless and has no dependencies; placing it in the earliest stage gives users command discoverability from first contact | Stage 1 |

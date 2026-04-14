@@ -1,8 +1,8 @@
 # System Context Document
 
-> **Version:** v0.7
-> **Status:** Final pre-architecture draft — all mandatory revisions from system_analysis_v0.6_review.md addressed; all three stakeholder decisions (SD-003, SD-004, SD-007) resolved
-> **Based On:** Business Analysis v0.5
+> **Version:** v0.8
+> **Status:** Updated to include `/help` command discoverability requirement
+> **Based On:** Business Analysis v0.6
 
 ---
 
@@ -53,6 +53,7 @@ The system is scoped to support approximately **10 users**, each maintaining app
 - Data retention enforcement (1-year guarantee after last interaction; PendingDeletion purge after 3-day grace period)
 - Logging and observability event capture (parse outcomes, alert evaluations, chart invocations, operational health signals)
 - Deferred ParseAttempt management (retention of raw input; user-initiated late categorisation)
+- In-bot command discoverability via a `/help` command that lists all available commands with descriptions
 
 ### Outside the System
 
@@ -647,7 +648,25 @@ Entries are immutable. They do not have a mutable lifecycle state beyond creatio
 
 ---
 
-## 12. Periodicity Vocabulary and Period Boundary Definitions
+## 12. Help Command
+
+### Flow 12: Help Request
+
+- **Trigger:** User sends the `/help` command.
+- **Actor:** End User
+- **Input:** `/help` command (no arguments required)
+- **System Processing:**
+  1. System receives the `/help` command. No registration check is required — the help response is available to any user including unregistered ones.
+  2. System constructs and dispatches a formatted message listing all available bot commands with a brief description of each.
+  3. No state changes, no entities created, no observability event emitted.
+- **Output:** Formatted command reference delivered to user.
+- **Risk Points:**
+  - The help text must stay synchronized with the actual set of implemented commands. If commands are added or removed, the help response must be updated accordingly.
+  - No personalization: the help response is static and does not reflect the user's current state (e.g., registered vs. unregistered, or which metrics/alerts exist).
+
+---
+
+## 13. Periodicity Vocabulary and Period Boundary Definitions
 
 The system accepts only the following periodicity values at metric creation time. Free-form periodicity strings are not accepted. Any input that does not match the closed vocabulary is rejected, and the user is prompted to select from the valid options.
 
@@ -660,7 +679,7 @@ The system accepts only the following periodicity values at metric creation time
 
 ---
 
-## 13. Dimension Naming Convention for Multi-Value Entries
+## 14. Dimension Naming Convention for Multi-Value Entries
 
 When a user submits a compound entry (e.g., `80kg 5reps`), the NLP parser must assign names to each parsed numeric value. The naming convention is as follows, applied in priority order:
 
@@ -678,11 +697,19 @@ When a user submits a compound entry (e.g., `80kg 5reps`), the NLP parser must a
 
 ## Version
 
-v0.7
+v0.8
 
 ## Based On
 
-Business v0.5
+Business v0.6
+
+## Changes Introduced (v0.7 → v0.8)
+
+- Updated version header to v0.8; based on Business Analysis v0.6.
+- Added in-bot command discoverability to §3 System Boundaries (Inside the System).
+- Added §12 Help Command with Flow 12 (Help Request).
+- Renumbered former §12 (Periodicity Vocabulary) to §13; former §13 (Dimension Naming Convention) to §14.
+- Decision Log: SD-009 added.
 
 ## Changes Introduced (v0.6 → v0.7)
 
@@ -749,6 +776,7 @@ Business v0.5
 | SD-006 | Periodicity vocabulary is closed: `daily` \| `weekly` | Free-form periodicities cannot be computed for MetricActivityStatus; closed vocabulary required | v0.6 | Confirmed |
 | SD-007 | ParseAttempt failure or timeout transitions to Deferred, not Expired; user may return to categorise later or come back later to reconfigure | Stakeholder decision: same policy as SD-003 — user can come back later; the entry is not discarded into an ambiguity terminal. ParseAttempt enters a "deferred" state, not a terminal failure. | v0.6 | **Resolved** |
 | SD-008 | Compound first-contact flow atomicity: onboarding is the primary atomic step; entry failure after onboarding does not roll back registration | System design decision derived from Flow 1 transactional analysis | v0.7 | Confirmed |
+| SD-009 | `/help` command is available without registration and returns a static formatted command list with no state side-effects | Discoverability must not be gated behind registration; static response avoids state complexity | v0.8 | Confirmed |
 
 ## Uncertainty Updates
 
