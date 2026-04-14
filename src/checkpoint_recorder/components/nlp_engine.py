@@ -5,10 +5,7 @@ Returns a ParseResult with:
   metric_name  — extracted or matched name
   value        — first numeric value found
   confidence   — 0.0–1.0 parse confidence (independent of metric existence)
-  outcome      — 'auto-parse' | 'unrecognized'
-
-Stage 1 only produces 'auto-parse' or 'unrecognized'.
-Stage 2 adds 'ambiguous' (ParseAttempt lifecycle).
+  outcome      — 'auto-parse' | 'ambiguous' | 'unrecognized'
 
 Confidence semantics:
   >= threshold   → auto-parse (Entry Processor decides existing vs new metric)

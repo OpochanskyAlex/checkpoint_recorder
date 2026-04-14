@@ -128,6 +128,34 @@ async def handle_disambiguation_response(
         await session.commit()
         return "Your disambiguation has already been resolved or expired. Send your message again."
 
+    # AC-4 (FR-5): if the ParseAttempt is past its expiry window, transition to Deferred
+    now = datetime.now(timezone.utc)
+    pa_expiry = (
+        pa.expiry_timestamp
+        if pa.expiry_timestamp.tzinfo is not None
+        else pa.expiry_timestamp.replace(tzinfo=timezone.utc)
+    )
+    if now > pa_expiry:
+        pa.status = ParseAttemptStatus.Deferred
+        conv_state.state = ConversationStateEnum.Idle
+        conv_state.state_data = None
+        await session.commit()
+        await observability.emit(
+            session,
+            "parse_outcome_event",
+            {
+                "outcome": "deferred",
+                "parse_attempt_id": str(pa.id),
+                "user_id": str(user.id),
+                "reason": "expired",
+            },
+        )
+        await session.commit()
+        return (
+            "Your disambiguation has expired (24h). "
+            "The entry has been deferred — use /deferred_list to categorize it later."
+        )
+
     key = text.strip().lower()
 
     # Defer path

@@ -115,4 +115,35 @@ async def handle_text(
         reply, stored = await process_entry(
             session, user, conv_state, message.text, message.date
         )
-        await message.answer(reply)
+        # AC-2 (FR-5 / NFR-17): if process_entry created a ParseAttempt
+        # (state is now PendingDisambiguation), wrap the prompt dispatch so
+        # we can compensate atomically on failure — no dangling Pending PAs.
+        if conv_state.state == ConversationStateEnum.PendingDisambiguation:
+            try:
+                await message.answer(reply)
+            except Exception:
+                log.exception("disambiguation_prompt_dispatch_failed", user_id=str(user.id))
+                import uuid as _uuid
+                from sqlalchemy import delete as _delete
+                from checkpoint_recorder.db.models import ParseAttempt
+                from checkpoint_recorder.components import observability
+                state_data = conv_state.state_data or {}
+                pa_id_str = state_data.get("parse_attempt_id")
+                if pa_id_str:
+                    try:
+                        pa_id = _uuid.UUID(pa_id_str)
+                        await session.execute(
+                            _delete(ParseAttempt).where(ParseAttempt.id == pa_id)
+                        )
+                    except Exception:
+                        log.exception("parse_attempt_compensation_failed", user_id=str(user.id))
+                        await observability.emit(
+                            session,
+                            "dangling_parse_attempt_alert",
+                            {"user_id": str(user.id), "parse_attempt_id": pa_id_str},
+                        )
+                conv_state.state = ConversationStateEnum.Idle
+                conv_state.state_data = None
+                await session.commit()
+        else:
+            await message.answer(reply)
