@@ -1,0 +1,70 @@
+@startuml checkpoint_recorder_use_cases
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "End User" as User
+actor "Scheduled\nProcess" as Sched <<system>>
+
+rectangle "Checkpoint Recorder Bot" {
+
+  package "Account" {
+    usecase "UC1\nOnboard new user" as UC1
+    usecase "UC12\nDelete account" as UC12
+    usecase "UC13\nRestore account" as UC13
+  }
+
+  package "Logging" {
+    usecase "UC2\nLog metric\n(auto-parsed)" as UC2
+    usecase "UC3\nResolve ambiguous\nentry" as UC3
+    usecase "UC11\nCategorize\ndeferred entry" as UC11
+  }
+
+  package "Management" {
+    usecase "UC4\nCreate metric\nexplicitly" as UC4
+    usecase "UC5\nList metrics" as UC5
+    usecase "UC6\nArchive / reactivate\nmetric" as UC6
+    usecase "UC7\nDelete metric" as UC7
+    usecase "UC15\nList and delete\nalerts" as UC15
+  }
+
+  package "Alerting" {
+    usecase "UC8\nConfigure\nthreshold alert" as UC8
+    usecase "UC9\nRe-arm\ntriggered alert" as UC9
+  }
+
+  package "Analytics" {
+    usecase "UC10\nRequest\ntrend chart" as UC10
+  }
+
+  package "Discovery" {
+    usecase "UC14\nRequest help" as UC14
+  }
+}
+
+' End User interactions
+User --> UC1
+User --> UC2
+User --> UC3
+User --> UC4
+User --> UC5
+User --> UC6
+User --> UC7
+User --> UC8
+User --> UC9
+User --> UC10
+User --> UC11
+User --> UC12
+User --> UC13
+User --> UC14
+User --> UC15
+
+' Scheduled Process interactions
+Sched --> UC12 : purge after\n72h grace period
+
+' Key extends
+UC2 ..> UC3 : <<extend>>\nambiguous NLP result
+UC2 ..> UC4 : <<extend>>\nnew metric name
+UC1 ..> UC2 : <<extend>>\nfirst message is\nalso a data entry
+
+@enduml

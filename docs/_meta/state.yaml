@@ -1,0 +1,49 @@
+workflow: rewrite-docs
+run_mode: full
+stages_requested: [ba, sa, arch, pm]
+stage: done
+last_agent: project-manager
+sa_readiness: Ready for Architecture
+last_score: null
+last_score_at: null
+revisions:
+  brd: 0
+  srs: 0
+  arch: 0
+  plan: 0
+versions:
+  brd: 0.1
+  srs: 0.1
+  arch: 0.1
+  plan: 0.1
+open_questions: []
+activities: [logging, management, analytics, alerting, account, discovery, General]
+sa_readiness: null
+human_overrides: []
+source_files:
+  - docsOLD/requirements/business_analysis.md
+  - docsOLD/requirements/system_analysis.md
+  - docsOLD/requirements/architecture.md
+  - docsOLD/requirements/implementation_spec.md
+  - docsOLD/requirements/project_plan.md
+  - docsOLD/requirements/technology.md
+  - docsOLD/requirements/initial_task_setup.md
+  - docsOLD/presentation/project_overview.md
+  - docsOLD/reviews/architecture_review.md
+orphan_decisions:
+  business_analysis_risks: include
+  business_analysis_decision_log: include
+  business_analysis_hypothesis: include
+  business_analysis_traceability: include
+  system_analysis_logical_consistency: include
+  system_analysis_dimension_naming: include
+  system_analysis_periodicity_vocab: include
+  implementation_spec: absorb_into_srs_and_arch
+  technology: adr_012
+  initial_task_setup: brd_context
+  project_overview: project_overview_file
+  architecture_review: archive
+discrepancy_decisions:
+  D1_postgresql: accepted_as_true_no_discrepancy
+  D2_fsm_vs_direct_db: note_only_do_not_edit
+  D3_webhook: accepted_as_true_no_discrepancy
