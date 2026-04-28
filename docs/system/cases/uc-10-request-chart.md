@@ -11,7 +11,8 @@ activities: [analytics]
 refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
-updated: 2026-04-26
+  - {doc: feat-smart-metric-picker, version: 0.1}
+updated: 2026-04-28
 tags: [project-docs, use-case]
 ---
 
@@ -71,6 +72,7 @@ Activity tags: `@analytics`
 
 - **Very large time range** → large image may fail Telegram delivery; coroutine should cap chart size or warn user.
 - **Compound metric** → one line per dimension in the chart; axes: entry_timestamp (x), dimension value (y).
+- **Bare or fuzzy-name command (2026-04-28 smart-metric-picker delta)** — when `/chart` is issued without an exact metric name match, [[uc-16-select-metric-picker|UC16]] executes first and resolves the metric name via the inline picker; after metric selection and last-3-values context display, this UC's main flow begins at step 2 (FR22, FR23, FR26). If zero fuzzy matches: FR28 delivers "no matching metrics found" and `/chart` is not executed.
 
 ## Non-functional considerations
 

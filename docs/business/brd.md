@@ -52,7 +52,7 @@ This is an educational and portfolio project with no monetization intent. Succes
 # Business Requirements
 
 - R1 [must] @logging System accepts free-text metric data entry without requiring structured commands or predefined categories <- G1
-- R2 [must] @logging System auto-creates a new metric on first entry for an unrecognized name, prompting the user to select a periodicity before storing the data <- G1
+- R2 [must] @logging When a user confirms metric creation via the explicit "Create [typed_name]" inline button (R17), the system prompts for periodicity (`daily` or `weekly`); the metric record and the pending entry are created atomically on periodicity confirmation; neither is stored before confirmation <- G1
 - R3 [must] @logging When automatic NLP parsing confidence is insufficient, system presents a ranked list of candidate metrics for manual selection; ambiguous input is never silently discarded <- G1
 - R4 [must] @analytics System maintains an immutable per-metric entry history and generates on-demand time-series chart images delivered in Telegram <- G2
 - R5 [must] @alerting System supports user-defined one-shot threshold alerts; alert fires once when the condition is met and requires explicit user re-arming to fire again <- G2
@@ -62,6 +62,13 @@ This is an educational and portfolio project with no monetization intent. Succes
 - R9 [must] @account User data is retained for a minimum of 1 year after last interaction; account deletion initiates a 72-hour grace period before irreversible permanent purge <- G3
 - R10 [must] @discovery System responds to `/help` with a complete, static list of all available commands and their descriptions; response is available without registration <- G1
 - R11 [must] @account Every new user registration is accompanied by an onboarding message stating: data retention policy, no-export limitation, verbatim message storage, and one-shot alert behavior <- G3
+- R12 [must] @logging @management When a user issues any metric-name-required command (`/chart`, `/alert_set`, `/metric_archive`, `/metric_reactivate`, `/metric_delete`, or the logging/entry flow) with no metric name argument, the system presents the user's complete metric catalog as inline keyboard buttons ordered by most-recently-recorded entry (descending); metrics with no entries appear last, ordered alphabetically <- G1
+- R13 [must] @logging @management When a user supplies a metric name argument that does not exactly match any existing metric but produces at least one fuzzy match (rapidfuzz; threshold defined by SA), the system presents matched metrics as inline keyboard buttons ordered by most-recently-recorded entry <- G1
+- R14 [must] @logging @management Inline keyboard buttons presenting metric choices are ordered by the timestamp of the most recent entry for each metric, descending; metrics with no entries appear last, ordered alphabetically by metric name (case-insensitive) <- G1
+- R15 [should] @logging @management When matched metrics exceed 4, the system displays only the top 4 matches plus a "Show all fits" button; pressing "Show all fits" replaces the message with an inline keyboard listing all matching metrics (native Telegram client scrolling applies; see Q-FEAT-4 for SA clarification on pagination) <- G1
+- R16 [should] @logging @management After a user selects a metric via the inline picker in any metric-name-required command, the system displays the last 3 recorded values for that metric (or fewer if fewer exist, with a "no entries yet" note when count is zero) as context before proceeding with the command; in the logging/entry flow this is additionally followed by a prompt for a new value <- G1, G2
+- R17 [must] @logging When the picker in the logging/entry flow finds zero fuzzy matches for a typed metric name, the system presents an explicit "Create [typed_name]" inline button instead of metric choices; pressing it initiates the periodicity selection and creation flow (R2) with the typed name pre-filled <- G1
+- R18 [must] @management When the picker in any metric-name-required management command (`/chart`, `/alert_set`, `/metric_archive`, `/metric_reactivate`, `/metric_delete`) finds zero fuzzy matches for a supplied metric name, the system responds with a "no matching metrics found" message and does not execute the command; no "Create" button is offered <- G1
 
 # User Stories
 
@@ -72,6 +79,7 @@ This is an educational and portfolio project with no monetization intent. Succes
 - [[us-5-set-alerts|US5 Set and manage threshold alerts]] <- R5, @alerting
 - [[us-6-manage-account|US6 Manage account]] <- R7, R8, R9, R11, @account
 - [[us-7-discover-commands|US7 Discover available commands]] <- R10, @discovery
+- [[us-8-metric-picker|US8 Select a metric via inline picker]] <- R12, R13, R14, R15, R16, R17, R18, @logging, @management
 
 # Glossary
 
@@ -84,6 +92,9 @@ This is an educational and portfolio project with no monetization intent. Succes
 - InternalUser — the system's representation of a registered user, keyed to an opaque internal identifier; no Telegram identity fields stored
 - Active metric — a metric with at least 4 entries out of the last 5 periods of its own periodicity
 - Active user — a user with at least one active metric
+- Smart Metric Picker — an inline keyboard interaction that surfaces a user's metric catalog (full or fuzzy-filtered) as pressable buttons, ordered by recency, triggered when a metric-name-required command is issued without an exact metric name match
+- Fuzzy match — a metric name whose normalized edit-distance similarity score (computed by rapidfuzz) meets or exceeds a threshold defined by SA; at least one match must exist for the picker to show filtered results
+- Recency order — metrics sorted descending by the timestamp of their most recent entry; metrics with no entries are sorted alphabetically after all metrics that have entries
 
 # Uncertainty Register
 
@@ -95,6 +106,15 @@ This is an educational and portfolio project with no monetization intent. Succes
 # Open Questions
 
 (None — all questions resolved as of source v0.6.)
+
+<!-- smart-metric-picker feature addition — 2026-04-28 -->
+
+- Q1 [SA] R3 (ParseAttempt) and R12/R13 (smart-metric-picker) both result in inline metric-button presentations but are triggered by different conditions. Does the SA define a single shared ConversationState for "awaiting metric selection" used by both paths, or two independent FSM branches? Impact: affects timeout behavior, deferral behavior, and whether a user in a ParseAttempt session sees the same UX as a user who issued a bare command.
+- Q2 [SA] After metric selection via the picker in the logging/entry flow (R16), the system asks for a new value. Is this "ask for new value" a new ConversationState node (e.g., AwaitingNewValue) or does it re-enter the existing entry submission state? Impact: FSM node count and whether existing timeout logic applies.
+- Q3 [SA] What is the exact rapidfuzz similarity threshold and scoring function (ratio, partial_ratio, token_sort_ratio) that defines a qualifying "fuzzy match" (R13)? Below this threshold, the picker does not fire and R2 auto-create or a no-match error applies instead. This threshold must be specified in the SRS to make R13 testable.
+- Q4 [SA] R15 specifies a "scrollable inline-button list" for "Show all fits". Telegram inline keyboards are scrollable only by the Telegram client when the list is long. SA should confirm whether "scrollable" means relying on native Telegram UI scrolling (no implementation change) or requires pagination buttons. If pagination is required, R15 implementation complexity increases.
+- ~~Q5 [stakeholder] R16 shows last 3 values after metric selection in the logging/entry flow. Should the same last-3-values context also appear when the picker resolves a metric for non-logging commands (`/chart`, `/metric_archive`, etc.), or is it exclusive to the logging/entry flow?~~ **Resolved 2026-04-28:** Last-3-values context applies to ALL metric-name-required commands. R16 updated accordingly.
+- ~~Q6 [stakeholder] When fuzzy matching yields zero results in the logging/entry flow (R13, zero-match case), should the system proceed directly to R2 auto-create, or should it first display a confirm-before-create prompt asking the user if they want to create a new metric with the typed name?~~ **Resolved 2026-04-28:** Neither. System presents an explicit "Create [typed_name]" inline button; R2 does not fire silently. R17 added.
 
 # Out of Scope
 

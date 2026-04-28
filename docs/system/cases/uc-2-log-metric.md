@@ -11,7 +11,8 @@ activities: [logging]
 refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
-updated: 2026-04-26
+  - {doc: feat-smart-metric-picker, version: 0.1}
+updated: 2026-04-28
 tags: [project-docs, use-case]
 ---
 
@@ -56,10 +57,10 @@ Activity tags: `@logging`
 
 ## Alternative flows
 
-### A1 Metric name unrecognized (metric auto-creation, FR6)
-Branches from step 3.
-1. Entry Processor dispatches periodicity selection prompt: "New metric `{name}` — is it tracked daily or weekly?"
-2. User Session Guard sets ConversationState = PendingPeriodicity. Metric record NOT written yet.
+### A1 Metric name unrecognized — Create button flow (FR27 → FR6)
+Branches from step 3. **Note (2026-04-28 smart-metric-picker delta):** The trigger for metric auto-creation is now the explicit "Create [typed_name]" inline button dispatched by FR27 (via UC16), NOT silent auto-creation on unrecognized name. The periodicity + atomic create mechanic (steps 2–6 below) is unchanged.
+1. Entry Processor determines no exact match. Zero fuzzy matches (rapidfuzz `token_set_ratio` < SU-010 threshold). UC16 (FR27) presents "Create [typed_name]" inline button. ConversationState → PendingMetricPicker.
+2. User presses the Create button. UC16 A2 routes to FR6: periodicity selection prompt dispatched: "New metric `{name}` — is it tracked daily or weekly?" ConversationState → PendingPeriodicity. Metric record NOT written yet.
 3. User responds with periodicity selection (Dispatcher routes via FR3).
 4. Entry Processor atomically creates Metric record (with confirmed periodicity) AND Entry record in a single DB transaction.
 5. ConversationState → Idle.
@@ -99,6 +100,8 @@ From A1 step 2, if user never responds:
 
 - **PendingPeriodicity while ambiguous message arrives** → Dispatcher routes new message to Entry Processor as non-periodicity (blocked); no new ParseAttempt created. User reminded to complete periodicity selection first.
 - **SU-009 timeout concurrent with user's periodicity response** → Scheduled Process clears state; user's response arrives to Idle state, treated as new free-text entry → UC2 restarts from step 1.
+- **Free-text message contains a metric name with no exact match but ≥1 fuzzy match (2026-04-28)** → UC16 (smart-metric-picker) intercepts before FR4 metric lookup. Picker keyboard displayed with fuzzy-matched metrics. UC2 main flow resumes after user selects a metric via UC16 and ConversationState transitions through PendingMetricPicker → PendingPickerValue → Idle (FR29, FR30).
+- **UC2 extended by UC16** — this UC is extended by [[uc-16-select-metric-picker|UC16]] when the free-text entry flow encounters a missing or fuzzy-matched metric name. Exact matches bypass UC16 entirely.
 
 ## Non-functional considerations
 

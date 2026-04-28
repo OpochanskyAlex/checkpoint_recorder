@@ -11,7 +11,8 @@ activities: [management]
 refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
-updated: 2026-04-26
+  - {doc: feat-smart-metric-picker, version: 0.1}
+updated: 2026-04-28
 tags: [project-docs, use-case]
 ---
 
@@ -65,3 +66,4 @@ Activity tags: `@management`
 
 - **Entries can still be added to Archived metrics** — archival does not block data entry (FR9 AC3); only alert evaluation is suspended.
 - **Alert evaluation skip for Archived metrics** — enforced via explicit conditional check in Alert Engine, not structurally guaranteed, because entries CAN be stored (implementation clarification from implementation_spec.md §13).
+- **Bare or fuzzy-name command (2026-04-28 smart-metric-picker delta)** — when `/metric_archive` or `/metric_reactivate` is issued without an exact metric name match, [[uc-16-select-metric-picker|UC16]] executes first and resolves the metric name via the inline picker before this UC's main flow begins (FR22, FR23). The main flow above assumes metric name is already resolved on entry.
