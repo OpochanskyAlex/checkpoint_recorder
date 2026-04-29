@@ -7,7 +7,8 @@ Jobs (run every scheduler_interval_hours, default 12h):
   3. 1-year retention review — emit event for long-inactive Active users
   4. Stale Deferred ParseAttempt cleanup → Expired
   5. Stale PendingPeriodicity state cleanup → Idle
-  6. Emit scheduler_heartbeat on successful completion
+  6. Stale PendingMetricPicker / PendingPickerValue cleanup → Idle (SU-009)
+  7. Emit scheduler_heartbeat on successful completion
 
 All jobs are idempotent (AC-FR18-7).
 Cascade deletion per user is atomic; failure skips that user and continues (AD-7).
@@ -65,6 +66,7 @@ async def run_scheduled_jobs() -> None:
             await _retention_review(session)
             await _cleanup_stale_parse_attempts(session)
             await _cleanup_stale_periodicity(session)
+            await _cleanup_stale_picker_states(session)
 
             # AC-FR18-1: heartbeat on every successful run
             await observability.emit(session, "scheduler_heartbeat", {"status": "ok"})
@@ -315,3 +317,54 @@ async def _cleanup_stale_periodicity(session: AsyncSession) -> None:
     if cleared:
         await session.commit()
         log.info("stale_periodicity_states_cleared", count=cleared)
+
+
+# Job 6: Stale PendingMetricPicker / PendingPickerValue cleanup
+# ---------------------------------------------------------------------------
+
+async def _cleanup_stale_picker_states(session: AsyncSession) -> None:
+    """
+    Clear ConversationState rows stuck in PendingMetricPicker or PendingPickerValue
+    beyond periodicity_prompt_expiry_hours (reuses SU-009, Q-PM-3 Option A).
+    Notifies users via conversation_state_event; no Telegram message sent here
+    (users receive re-prompt from handle_text on next interaction before scheduler runs).
+    """
+    from checkpoint_recorder.config import settings
+    from checkpoint_recorder.db.models import ConversationStateEnum
+    now = datetime.now(timezone.utc)
+    expiry = timedelta(hours=settings.periodicity_prompt_expiry_hours)
+
+    rows = await session.execute(
+        select(ConversationState).where(
+            ConversationState.state.in_([
+                ConversationStateEnum.PendingMetricPicker,
+                ConversationStateEnum.PendingPickerValue,
+            ])
+        )
+    )
+    states = list(rows.scalars().all())
+
+    cleared = 0
+    for cs in states:
+        entered = cs.updated_timestamp
+        if entered.tzinfo is None:
+            entered = entered.replace(tzinfo=timezone.utc)
+        if now - entered <= expiry:
+            continue
+        old_state = cs.state.value
+        cs.state = ConversationStateEnum.Idle
+        cs.state_data = None
+        cleared += 1
+        await observability.emit(
+            session,
+            "conversation_state_event",
+            {
+                "user_id": str(cs.internal_user_id),
+                "type": "picker_timeout",
+                "previous_state": old_state,
+            },
+        )
+
+    if cleared:
+        await session.commit()
+        log.info("stale_picker_states_cleared", count=cleared)

@@ -20,6 +20,12 @@ from checkpoint_recorder.components.metric_manager import (
     list_metrics_with_activity,
     reactivate_metric,
     get_metric_by_name,
+    get_metrics_ordered_by_recency,
+    get_user_metric_names,
+)
+from checkpoint_recorder.components.picker_keyboard import (
+    build_picker_keyboard,
+    build_zero_match_message,
 )
 from checkpoint_recorder.db.models import (
     ConversationState,
@@ -63,17 +69,79 @@ async def cmd_metric_list(
     await message.answer("\n".join(lines))
 
 
+async def _picker_intercept(
+    message: Message,
+    user: InternalUser,
+    conv_state: ConversationState,
+    session: AsyncSession,
+    name: str,
+    command_context: str,
+    extra_state: dict | None = None,
+) -> bool:
+    """
+    Shared picker intercept for management commands (FR22, FR23, FR28).
+    Returns True if intercepted (caller should return), False to proceed normally.
+    extra_state is merged into state_data for commands needing extra args (e.g. alert_set).
+    """
+    from checkpoint_recorder.components.nlp_engine import fuzzy_match_metrics
+    from checkpoint_recorder.config import settings
+
+    known_names = await get_user_metric_names(session, user.id)
+
+    if not name:
+        # Bare command — show all user metrics (FR22)
+        all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+        if not all_metrics:
+            await message.answer("You have no metrics yet. Use /metric_create to create one.")
+            return True
+        conv_state.state = ConversationStateEnum.PendingMetricPicker
+        conv_state.state_data = {"command_context": command_context, "typed_name": "", **(extra_state or {})}
+        await session.commit()
+        keyboard = build_picker_keyboard(all_metrics)
+        await message.answer(
+            "Which metric? Select from your recent metrics:",
+            reply_markup=keyboard,
+        )
+        return True
+
+    # Exact match — let caller handle normally
+    exact = await get_metric_by_name(session, user.id, name)
+    if exact is not None:
+        return False
+
+    # Fuzzy match (FR23)
+    if settings.fuzzy_match_threshold > 0:
+        fuzzy_names = fuzzy_match_metrics(name, known_names, settings.fuzzy_match_threshold)
+        if fuzzy_names:
+            all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+            fuzzy_set = set(fuzzy_names)
+            matching = [m for m in all_metrics if m.name in fuzzy_set]
+            conv_state.state = ConversationStateEnum.PendingMetricPicker
+            conv_state.state_data = {"command_context": command_context, "typed_name": name, **(extra_state or {})}
+            await session.commit()
+            keyboard = build_picker_keyboard(matching)
+            await message.answer(
+                f'No exact match for "<b>{name}</b>". Did you mean:',
+                reply_markup=keyboard,
+            )
+            return True
+
+    # Zero matches (FR28)
+    await message.answer(build_zero_match_message(command_context))
+    return True
+
+
 @router.message(Command("metric_archive"))
 async def cmd_metric_archive(
     message: Message,
     command: CommandObject,
     user: InternalUser,
+    conv_state: ConversationState,
     session: AsyncSession,
 ) -> None:
     """Archive a metric (FR-9)."""
     name = (command.args or "").strip()
-    if not name:
-        await message.answer("Usage: /metric_archive <b>&lt;metric name&gt;</b>")
+    if await _picker_intercept(message, user, conv_state, session, name, "archive"):
         return
 
     metric, error = await archive_metric(session, user.id, name)
@@ -94,12 +162,12 @@ async def cmd_metric_reactivate(
     message: Message,
     command: CommandObject,
     user: InternalUser,
+    conv_state: ConversationState,
     session: AsyncSession,
 ) -> None:
     """Reactivate an archived metric (FR-9)."""
     name = (command.args or "").strip()
-    if not name:
-        await message.answer("Usage: /metric_reactivate <b>&lt;metric name&gt;</b>")
+    if await _picker_intercept(message, user, conv_state, session, name, "reactivate"):
         return
 
     metric, error = await reactivate_metric(session, user.id, name)
@@ -130,17 +198,11 @@ async def cmd_metric_delete(
         return
 
     name = (command.args or "").strip()
-    if not name:
-        await message.answer("Usage: /metric_delete <b>&lt;metric name&gt;</b>")
+    if await _picker_intercept(message, user, conv_state, session, name, "delete"):
         return
 
     metric = await get_metric_by_name(session, user.id, name)
-    if metric is None:
-        await message.answer(
-            f"No metric named '<b>{name}</b>' found. "
-            "Use /metric_list to see your metrics."
-        )
-        return
+    # metric is guaranteed non-None here (_picker_intercept returned False only on exact match)
 
     # Enter confirmation state
     conv_state.state = ConversationStateEnum.PendingMetricDeletionConfirmation

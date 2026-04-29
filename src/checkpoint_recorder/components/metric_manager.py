@@ -28,6 +28,41 @@ from checkpoint_recorder.db.models import (
 log = structlog.get_logger()
 
 
+async def get_metrics_ordered_by_recency(
+    session: AsyncSession, user_id
+) -> list[Metric]:
+    """
+    Return Active and Archived metrics for a user, ordered by the timestamp of
+    their most recent Entry (DESC, NULLS LAST), then by metric name (ASC).
+    Used by the smart-metric-picker to populate the inline keyboard (FR24).
+    Scoped by internal_user_id (ADR-005).
+    """
+    rows = await session.execute(
+        select(Metric)
+        .where(
+            Metric.internal_user_id == user_id,
+            Metric.status.in_([MetricStatus.Active, MetricStatus.Archived]),
+        )
+        .outerjoin(Entry, Entry.metric_id == Metric.id)
+        .group_by(Metric.id)
+        .order_by(func.max(Entry.entry_timestamp).desc().nulls_last(), Metric.name.asc())
+    )
+    return list(rows.scalars().all())
+
+
+async def get_last_entries(
+    session: AsyncSession, metric_id, limit: int = 3
+) -> list[Entry]:
+    """Return the most recent `limit` entries for a metric, newest first."""
+    rows = await session.execute(
+        select(Entry)
+        .where(Entry.metric_id == metric_id)
+        .order_by(Entry.entry_timestamp.desc())
+        .limit(limit)
+    )
+    return list(rows.scalars().all())
+
+
 async def get_user_metric_names(session: AsyncSession, user_id) -> list[str]:
     """Return names of all Active and Archived metrics for a user (for NLP matching)."""
     rows = await session.execute(

@@ -15,11 +15,21 @@ from aiogram.types import Message
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from checkpoint_recorder.components.metric_manager import get_metric_by_name
+from checkpoint_recorder.components.metric_manager import (
+    get_metric_by_name,
+    get_metrics_ordered_by_recency,
+    get_user_metric_names,
+)
+from checkpoint_recorder.components.picker_keyboard import (
+    build_picker_keyboard,
+    build_zero_match_message,
+)
 from checkpoint_recorder.db.models import (
     Alert,
     AlertCondition,
     AlertStatus,
+    ConversationState,
+    ConversationStateEnum,
     InternalUser,
     MetricStatus,
 )
@@ -33,13 +43,19 @@ async def cmd_alert_set(
     message: Message,
     command: CommandObject,
     user: InternalUser,
+    conv_state: ConversationState,
     session: AsyncSession,
 ) -> None:
     """Configure a threshold alert on a metric (FR-11).
 
     Usage: /alert_set <metric_name> <above|below> <threshold>
     """
+    from checkpoint_recorder.components.nlp_engine import fuzzy_match_metrics
+    from checkpoint_recorder.config import settings
+
     args = (command.args or "").split()
+
+    # Bare command or only metric name — need condition+threshold before we can intercept
     if len(args) < 3:
         await message.answer(
             "Usage: /alert_set <b>&lt;metric_name&gt;</b> <b>&lt;above|below&gt;</b> <b>&lt;threshold&gt;</b>\n\n"
@@ -67,7 +83,27 @@ async def cmd_alert_set(
         )
         return
 
+    # Picker intercept (FR22, FR23)
     metric = await get_metric_by_name(session, user.id, metric_name)
+    if metric is None and settings.fuzzy_match_threshold > 0:
+        known_names = await get_user_metric_names(session, user.id)
+        fuzzy_names = fuzzy_match_metrics(metric_name, known_names, settings.fuzzy_match_threshold)
+        extra = {"alert_condition": condition_str, "alert_threshold": threshold}
+        if fuzzy_names:
+            all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+            matching = [m for m in all_metrics if m.name in set(fuzzy_names)]
+            conv_state.state = ConversationStateEnum.PendingMetricPicker
+            conv_state.state_data = {"command_context": "alert_set", "typed_name": metric_name, **extra}
+            await session.commit()
+            await message.answer(
+                f'No exact match for "<b>{metric_name}</b>". Did you mean:',
+                reply_markup=build_picker_keyboard(matching),
+            )
+            return
+        else:
+            await message.answer(build_zero_match_message("alert_set"))
+            return
+
     if metric is None:
         await message.answer(
             f"No metric named '<b>{metric_name}</b>' found. "

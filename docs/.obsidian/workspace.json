@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "system/srs.md",
+                "file": "project/plan-smart-metric-picker.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "srs"
+              "title": "plan-smart-metric-picker"
             }
           }
         ]
@@ -74,8 +74,7 @@
               "title": "Bookmarks"
             }
           }
-        ],
-        "currentTab": 1
+        ]
       }
     ],
     "direction": "horizontal",
@@ -95,7 +94,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "system/srs.md",
+                "file": "project/plan-smart-metric-picker.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -105,7 +104,7 @@
                 "unlinkedCollapsed": true
               },
               "icon": "links-coming-in",
-              "title": "Backlinks for srs"
+              "title": "Backlinks for plan-smart-metric-picker"
             }
           },
           {
@@ -114,12 +113,12 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "system/srs.md",
+                "file": "project/plan-smart-metric-picker.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               },
               "icon": "links-going-out",
-              "title": "Outgoing links from srs"
+              "title": "Outgoing links from plan-smart-metric-picker"
             }
           },
           {
@@ -157,13 +156,13 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "system/srs.md",
+                "file": "project/plan-smart-metric-picker.md",
                 "followCursor": false,
                 "showSearch": false,
                 "searchQuery": ""
               },
               "icon": "lucide-list",
-              "title": "Outline of srs"
+              "title": "Outline of plan-smart-metric-picker"
             }
           }
         ]
@@ -186,6 +185,9 @@
   },
   "active": "ab82e2630103fbb6",
   "lastOpenFiles": [
+    "project/plan.md",
+    "system/srs.md",
+    "project/plan-smart-metric-picker.md.tmp.190388.1777441123785",
     "design/picker-visual.html",
     "design/picker-visual.html.tmp.190388.1777439132116",
     "design",
@@ -195,13 +197,9 @@
     "project/plan-smart-metric-picker.md.tmp.190388.1777411187336",
     "project/plan-smart-metric-picker.md.tmp.190388.1777411169527",
     "project/plan-smart-metric-picker.md.tmp.190388.1777411157140",
-    "project/plan-smart-metric-picker.md.tmp.190388.1777411153389",
-    "project/plan-smart-metric-picker.md.tmp.190388.1777411099637",
     "project/plan-smart-metric-picker.md",
     "architecture/reviews/arch-smart-metric-picker-v0.1-20260428T0100Z.md",
     "architecture/adrs/adr-013-inline-keyboard-callback-routing.md",
-    "project/plan.md",
-    "system/srs.md",
     "system/reviews/srs-smart-metric-picker-v0.1-20260428T0030Z.md",
     "business/brd.md",
     "system/cases/uc-16-select-metric-picker.md",

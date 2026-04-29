@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # NLP (SU-002)
     nlp_confidence_threshold: float = 0.65
 
+    # Smart metric picker (SU-010)
+    fuzzy_match_threshold: int = 70
+
     # Timeouts (SU-001, SU-009)
     parse_attempt_expiry_hours: int = 24
     periodicity_prompt_expiry_hours: int = 24

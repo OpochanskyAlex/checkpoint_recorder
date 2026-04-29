@@ -267,25 +267,43 @@ A = Accountable. R = Responsible. C = Consulted.
 
 # Total Token Budget
 
-| Task | T-shirt | Tokens |
-|---|---|---|
-| T1 Migration | S | ~10k |
-| T2 Config | XS | ~2k |
-| T3 USG + cancel | S | ~8k |
-| T4 NLP fuzzy trigger | S | ~12k |
-| T5 Recency query | S | ~10k |
-| T6 Keyboard builder | M | ~25k |
-| T7 CallbackQuery handler | M | ~25k |
-| T8 Logging picker flow | M | ~35k |
-| T9 Management picker flow | M | ~30k |
-| T10 Scheduler cleanup | S | ~12k |
-| T11 Show all fits | S | ~12k |
-| T12 Observability | S | ~10k |
-| **Total** | | **~191k** |
+Actual figures are **output tokens only** (measured from the session transcript). The original estimates targeted total context-window consumption, which is typically 3–5× larger than output tokens alone — this explains the systematic overestimate.
 
-**Confidence band: ±25%** → range **143k – 239k tokens** (upper-M to lower-L range).
+| Stage | T-shirt | Estimated | Actual (output tokens) |
+|---|---|---|---|
+| **Documentation pipeline** | | | |
+| BA stage (business analysis) | | — | 75,035 |
+| SA stage (system analysis) | | — | 79,662 |
+| Arch stage (architecture) | | — | 24,152 |
+| PM stage (project plan + Q&A) | | — | 36,221 |
+| *Docs subtotal* | | — | *215,070* |
+| **Visual design** | | | |
+| Picker UX mockup (HTML) | | — | 9,926 |
+| **Implementation** | | | |
+| Pre-implementation reading | | — | 6,419 |
+| T1 Migration | S | ~10k | ~1,974 ¹ |
+| T2 Config | XS | ~2k | ¹ included in T1 |
+| T3 USG + cancel | S | ~8k | ~846 |
+| T4 NLP fuzzy trigger | S | ~12k | ~584 |
+| T5 Recency query | S | ~10k | ~1,669 |
+| T6 Keyboard builder | M | ~25k | ~1,102 |
+| T7 CallbackQuery handler | M | ~25k | ~22,304 ² |
+| T8 Logging picker flow | M | ~35k | ² included in T7 |
+| T9 Management picker flow | M | ~30k | ~16,030 |
+| T10 Scheduler cleanup | S | ~12k | ~2,425 |
+| T11 Show all fits | S | ~12k | ~1,039 |
+| T12 Observability | S | ~10k | ~747 |
+| *Implementation subtotal* | | *~191k* | *~54,139* |
+| **Session overhead** | | | |
+| Current session (Q&A, review) | | — | 12,565 |
+| **Grand total** | | — | **~291,700** |
 
-Primary variance driver: T8 (process_entry surgery — highest regression risk, see RISK-F3).
+¹ T1 and T2 were implemented in the same parallel batch; output tokens are combined.  
+² T7 and T8 were implemented in the same continuous pass; output tokens are combined.
+
+**Original confidence band: ±25%** → range **143k – 239k tokens** (upper-M to lower-L range). This band applied to implementation only and was measuring context-window tokens, not output tokens.
+
+Primary variance driver: T8 (process_entry surgery — highest regression risk, see RISK-F3). This held true in practice: T7+T8 together accounted for 41% of all implementation output tokens.
 
 # Open Questions
 

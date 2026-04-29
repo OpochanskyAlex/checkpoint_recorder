@@ -111,9 +111,19 @@ async def handle_text(
         reply = await handle_restoration_confirmation(session, user, conv_state, message.text)
         await message.answer(reply)
 
+    elif state == ConversationStateEnum.PendingMetricPicker:
+        await message.answer(
+            "Please select a metric from the keyboard above, or use /cancel to cancel action."
+        )
+
+    elif state == ConversationStateEnum.PendingPickerValue:
+        from checkpoint_recorder.components.picker_flow import handle_picker_value
+        reply = await handle_picker_value(session, user, conv_state, message.text)
+        await message.answer(reply)
+
     else:
         # Idle — attempt data entry (FR-4)
-        reply, stored = await process_entry(
+        reply, stored, keyboard = await process_entry(
             session, user, conv_state, message.text, message.date, bot=message.bot
         )
         # AC-2 (FR-5 / NFR-17): if process_entry created a ParseAttempt
@@ -147,4 +157,4 @@ async def handle_text(
                 conv_state.state_data = None
                 await session.commit()
         else:
-            await message.answer(reply)
+            await message.answer(reply, reply_markup=keyboard)
