@@ -9,7 +9,7 @@ score: null
 activities: [logging, management, analytics, alerting, account, discovery, General]
 refs:
   - {doc: brd, version: 0.1}
-updated: 2026-04-26
+updated: 2026-05-01
 tags: [project-docs, srs]
 ---
 
@@ -24,7 +24,7 @@ Single-process Telegram bot that receives free-text messages from registered use
 - FR3 [must] @General Conversation state routing — Message Dispatcher consults per-user ConversationState before intent classification; non-Idle state overrides normal routing; at most one non-Idle state per user at any time <- [[brd#R1|R1 Free-text data entry]], [[brd#R3|R3 Parse failure fallback]]
 - FR4 [must] @logging Standard data entry (auto-parsed) — NLP confidence ≥ threshold; Entry record created atomically and immutably; alert evaluation triggered post-commit; confirmation dispatched <- [[brd#R1|R1 Free-text data entry]], [[brd#R2|R2 Metric auto-creation]], [[us-1-log-metric|US1 Log a metric in free text]]
 - FR5 [must] @logging Ambiguous entry (ParseAttempt lifecycle) — NLP confidence < threshold; ParseAttempt created; disambiguation prompt dispatched; user selects metric or defers; input never silently discarded <- [[brd#R3|R3 Parse failure fallback]], [[us-2-resolve-ambiguous|US2 Resolve an ambiguous entry]]
-- FR6 [must] @logging Metric auto-creation — unrecognized metric name during FR4; periodicity selection prompt dispatched; Metric record NOT written until periodicity confirmed; Metric + Entry created atomically on confirmation <- [[brd#R2|R2 Metric auto-creation]], [[us-1-log-metric|US1 Log a metric in free text]]
+- FR6 [must] @logging Metric auto-creation — triggered when user presses the "Create [typed_name]" inline button dispatched by FR27 (not auto-triggered on unrecognized name); periodicity selection prompt dispatched; Metric record NOT written until periodicity confirmed; Metric + Entry created atomically on confirmation <- [[brd#R2|R2 Metric auto-creation (updated)]], [[brd#R17|R17 Explicit Create button]], [[us-1-log-metric|US1 Log a metric in free text]]
 - FR7 [must] @management Explicit metric creation via `/metric_create` — name (≤100 chars), periodicity (daily|weekly), optional unit (≤50 chars), optional ordered dimension_names; unique constraint enforced at DB layer <- [[brd#R6|R6 Metric catalog management]], [[us-3-manage-metrics|US3 Manage metric catalog]]
 - FR8 [must] @management Metric listing via `/metric_list` — all Active and Archived metrics returned with name, periodicity, unit, status, and computed MetricActivityStatus (periods_filled 0–5; Active if ≥4 of last 5 periods filled) <- [[brd#R6|R6 Metric catalog management]], [[us-3-manage-metrics|US3 Manage metric catalog]]
 - FR9 [must] @management Metric archival and reactivation via `/metric_archive` / `/metric_reactivate` — archival suspends alert evaluation; entries and alert configuration preserved; reactivation resumes evaluation <- [[brd#R6|R6 Metric catalog management]], [[us-3-manage-metrics|US3 Manage metric catalog]]
@@ -40,6 +40,17 @@ Single-process Telegram bot that receives free-text messages from registered use
 - FR19 [must] @discovery `/help` command — static formatted list of all available commands and descriptions; no state change; no event emitted; available without registration <- [[brd#R10|R10 /help command]], [[us-7-discover-commands|US7 Discover available commands]]
 - FR20 [must] @management Alert listing via `/alert_list` — all non-Deleted alerts for the user returned with metric name, target dimension, condition, threshold, and status <- [[brd#R5|R5 One-shot threshold alerts]], [[brd#R6|R6 Metric catalog management]]
 - FR21 [must] @management Alert deletion via `/alert_delete` — single-step confirmation; immediate and irreversible; no grace period; applies to any alert status including Triggered <- [[brd#R5|R5 One-shot threshold alerts]], [[brd#R6|R6 Metric catalog management]]
+- FR22 [must] @logging @management Metric picker — bare command trigger: when any metric-name-required command (`/chart`, `/alert_set`, `/metric_archive`, `/metric_reactivate`, `/metric_delete`) or the logging/entry flow is issued with no metric name argument, retrieve the user's full metric catalog and present it as an inline keyboard (ConversationState → PendingMetricPicker); button list ordered per FR24 <- [[brd#R12|R12 Bare command picker]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR23 [must] @logging @management Metric picker — fuzzy name trigger: when a metric name argument is supplied that has no exact match in the user's catalog, run rapidfuzz `token_set_ratio` against all user metric names (case-insensitive); if ≥1 result meets or exceeds threshold SU-010 (default 70, 0–100 scale), present matched metrics as inline keyboard (ConversationState → PendingMetricPicker); button list ordered per FR24; original typed name shown in message for reference; note — no custom pagination; Telegram client native scroll applies (Q-FEAT-4 resolved) <- [[brd#R13|R13 Fuzzy name picker]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR24 [must] @logging @management Recency ordering for picker buttons: metrics sorted descending by `MAX(entry_timestamp)` of their entries; metrics with zero entries sorted alphabetically by `metric_name` (case-insensitive) after all metrics-with-entries; this ordering applies to all picker presentations including "Show all fits" expansion <- [[brd#R14|R14 Recency ordering]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR25 [should] @logging @management Picker overflow — "Show all fits": when matched metrics exceed 4, display only the top 4 (by FR24 ordering) plus a "Show all fits" inline button; pressing "Show all fits" replaces the current message with an inline keyboard listing all matching metrics; no custom pagination — Telegram client native scroll handles long lists <- [[brd#R15|R15 Overflow display]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR26 [should] @logging @management Last-3-values context: immediately after the user selects a metric via the inline picker in any metric-name-required command, the system displays the last 3 recorded entry values for that metric (or fewer if fewer exist; "no entries yet" note if count = 0) as context **in the same message as the selection confirmation** before proceeding with the command; this applies to ALL metric-name-required commands, not only the logging flow <- [[brd#R16|R16 Last-3-values context]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR27 [must] @logging Create button on logging zero-match: when the picker is triggered in the logging/entry flow (free-text entry, not a management command) and rapidfuzz returns zero matches for the typed metric name, display an explicit "Create [typed_name]" inline button instead of metric choices; pressing the button leads to the existing periodicity selection and atomic create flow (FR6) with the typed name pre-filled; no metric is created before the button is pressed; no auto-creation <- [[brd#R17|R17 Create button on zero-match]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR28 [must] @management Management zero-match message: when the picker is triggered for a management command (`/chart`, `/alert_set`, `/metric_archive`, `/metric_reactivate`, `/metric_delete`) and rapidfuzz returns zero matches for the supplied metric name, respond with a "no matching metrics found" informational message; no picker keyboard displayed; no Create button offered; command not executed <- [[brd#R18|R18 Management zero-match]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR29 [must] @logging @management PendingMetricPicker state routing and timeout: ConversationState = PendingMetricPicker is set when the picker keyboard is displayed; `state_data` stores `{command_context, typed_name}` to differentiate originating command after selection; at most one active picker per user at any time (BR13); if user does not interact within SU-009 (24h default), Scheduled Process clears state to Idle and notifies user of cancellation; inline button callback received in this state routes to FR26 → then to originating command flow (UC2 for logging; UC6/UC7/UC8/UC10 for management); pressing the inline Cancel button (`callback_data = "cancel"`) produces the same outcome as FR31 <- Q-FEAT-1 resolved, [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR30 [must] @logging PendingPickerValue state routing and timeout: after the user selects a metric via the picker in the logging/entry flow (i.e., `command_context = logging`), and FR26 has displayed last-3-values, ConversationState transitions to PendingPickerValue; `state_data` stores `{metric_id, metric_name}`; system awaits a numeric value message; value received → Entry created atomically (FR4 path); validation failure → user re-prompted; timeout SU-009 (24h) → Scheduled Process clears state to Idle; PendingPickerValue is distinct from Idle+FR4 because metric is pre-resolved and routing/validation differ <- Q-FEAT-2 resolved, [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR31 [must] @General `/cancel` command — when ConversationState ≠ Idle, sets ConversationState to Idle and clears `state_data`, dispatches "Cancelled. You're back to the main menu."; when ConversationState = Idle, dispatches "Nothing to cancel." with no state change; no committed data is rolled back; applies to all non-Idle states; listed in `/help` (FR19); pre-existing implementation discovered as undocumented during smart-metric-picker feature addition <- [[brd#G1|G1 Reduce tracking abandonment]]
+- FR32 [must] @logging @management Cancel button on picker keyboard — every picker keyboard display (bare command, fuzzy match, overflow expansion, and zero-match Create-button display) includes a Cancel button as the last inline button; pressing it produces an outcome identical to FR31 (`/cancel`): ConversationState → Idle, `state_data` cleared, reply = "Cancelled. You're back to the main menu."; `callback_data = "cancel"` (6 bytes); this routing applies when ConversationState is any non-Idle state (not only PendingMetricPicker) — consistent with FR31 which covers all non-Idle states <- [[brd#R19|R19 Cancel button in picker keyboard]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
 
 # Non-Functional Requirements
 
@@ -60,6 +71,7 @@ Single-process Telegram bot that receives free-text messages from registered use
 - NFR15 [must] @account Data Integrity: all `raw_input` fields purged in full on cascade account deletion and cascade metric deletion <- [[brd#R7|R7 Opaque user ID only]], [[brd#R9|R9 Data retention and grace period]], FR10, FR18
 - NFR16 [must] @logging Reliability: zero dangling Pending ParseAttempts with no dispatched disambiguation prompt after `parse_attempt_dangling_detection_window` (default 30s, configurable) <- [[brd#R3|R3 Parse failure fallback]], FR5
 - NFR17 [must] @management Data Integrity: zero duplicate `(internal_user_id, metric_name)` pairs; enforced at database layer via unique constraint <- [[brd#R6|R6 Metric catalog management]], FR7
+- NFR18 [must] @logging @management Performance: metric picker keyboard presented ≤5s p95 from command receipt (bare command) or NLP parse completion (fuzzy trigger), measured at Telegram Gateway send time <- [[brd#R12|R12]], [[brd#R13|R13]], FR22, FR23
 
 # Data Model
 
@@ -131,10 +143,13 @@ Single-process Telegram bot that receives free-text messages from registered use
 ## DM6 ConversationState
 
 - `internal_user_id`: uuid, pk, fk → DM1 (CASCADE)
-- `state`: enum(Idle|PendingDisambiguation|PendingPeriodicity|PendingMetricDeletionConfirmation|PendingRestorationConfirmation), not null, default Idle
-- `state_data`: jsonb, nullable — flow-specific context (e.g., `{"pending_metric_name": "weight"}`)
+- `state`: enum(Idle|PendingDisambiguation|PendingPeriodicity|PendingMetricDeletionConfirmation|PendingRestorationConfirmation|PendingMetricPicker|PendingPickerValue), not null, default Idle
+- `state_data`: jsonb, nullable — flow-specific context; key examples:
+  - PendingPeriodicity: `{"pending_metric_name": "weight"}`
+  - PendingMetricPicker: `{"command_context": "logging"|"chart"|"alert_set"|"metric_archive"|"metric_reactivate"|"metric_delete", "typed_name": "<user-typed string or null>"}` — differentiates originating command after selection (Q-FEAT-1 resolved)
+  - PendingPickerValue: `{"metric_id": "<uuid>", "metric_name": "<string>"}` — metric pre-resolved; system awaits numeric value (Q-FEAT-2 resolved)
 - `updated_timestamp`: timestamptz, not null
-- constraints: one record per user; persisted to DB; survives process restarts; at most one non-Idle state per user
+- constraints: one record per user; persisted to DB; survives process restarts; at most one non-Idle state per user (BR13)
 
 > **DISCREPANCY:** `docsOLD/requirements/technology.md` states "FSM / ConversationState: aiogram built-in FSM, Persisted via SQLAlchemy storage backend." The current `src/checkpoint_recorder/bot.py` creates a plain `Dispatcher()` with no FSM storage backend and a comment "ConversationState is managed in DB directly (no FSM storage required)." Implementation uses direct DB row management, not aiogram FSM. Resolution deferred to bot description update per stakeholder instruction — do not edit code.
 
@@ -159,21 +174,25 @@ Telegram bot interface — no REST API. All interaction is via Telegram messages
 
 | Command / Input | Auth | Parameters | Success response | Error response | FR |
 |---|---|---|---|---|---|
-| (free text) | active | Raw message — NLP parsed | Confirmation (≤5s) or periodicity prompt | Re-submit notice if storage fails | FR4, FR6 |
+| (free text) | active | Raw message — NLP parsed; if metric name has no exact match and ≥1 fuzzy match → UC16 intercepts before FR4 lookup; if zero fuzzy matches → FR27 Create button shown | Confirmation (≤5s) or picker keyboard or periodicity prompt | Re-submit notice if storage fails | FR4, FR6, FR22, FR23, FR27 |
 | `/help` | open | None | Formatted command list | — | FR19 |
 | `/metric_create` | active | `name` periodicity [`unit`] [`dimension_names`...] | Metric summary with id | Duplicate name / invalid periodicity / validation error | FR7 |
 | `/metric_list` | active | None | All Active+Archived metrics with MetricActivityStatus | Empty-list notice if none | FR8 |
-| `/metric_archive` | active | `metric_name` | Confirmation with suspended alert note | Not found / already Archived | FR9 |
-| `/metric_reactivate` | active | `metric_name` | Confirmation with resumed alert note | Not found / already Active | FR9 |
-| `/metric_delete` | active | `metric_name` | Confirmation prompt (lists cascade scope) → on confirm: deletion confirmation | Not found / user cancels | FR10 |
-| `/alert_set` | active | `metric_name condition threshold [dimension]` | Alert summary | Archived metric / bad dimension / non-finite threshold | FR11 |
+| `/metric_archive` | active | `[metric_name]` — optional; bare command triggers picker (FR22) | Confirmation with suspended alert note | Not found / already Archived / zero fuzzy matches (FR28) | FR9, FR22, FR23, FR28 |
+| `/metric_reactivate` | active | `[metric_name]` — optional; bare command triggers picker (FR22) | Confirmation with resumed alert note | Not found / already Active / zero fuzzy matches (FR28) | FR9, FR22, FR23, FR28 |
+| `/metric_delete` | active | `[metric_name]` — optional; bare command triggers picker (FR22) | Confirmation prompt (lists cascade scope) → on confirm: deletion confirmation | Not found / user cancels / zero fuzzy matches (FR28) | FR10, FR22, FR23, FR28 |
+| `/alert_set` | active | `[metric_name] condition threshold [dimension]` — metric_name optional; bare command triggers picker (FR22) | Alert summary | Archived metric / bad dimension / non-finite threshold / zero fuzzy matches (FR28) | FR11, FR22, FR23, FR28 |
 | `/alert_list` | active | None | All non-Deleted alerts with status | Empty-list notice | FR20 |
 | `/alert_rearm` | active | `alert_id` | Confirmation | Alert not Triggered | FR13 |
 | `/alert_delete` | active | `alert_id` | Confirmation prompt → on confirm: deletion confirmation | Not found | FR21 |
-| `/chart` | active | `metric_name [time_range]` | "Generating chart…" (≤5s) → image (≤30s) | No entries / rendering failure | FR14 |
+| `/chart` | active | `[metric_name] [time_range]` — metric_name optional; bare command triggers picker (FR22) | "Generating chart…" (≤5s) → image (≤30s) | No entries / rendering failure / zero fuzzy matches (FR28) | FR14, FR22, FR23, FR28 |
 | `/deferred_list` | active | None | List of Deferred ParseAttempts with raw_input and timestamps | Empty-list notice | FR15 |
 | `/deferred_categorize` | active | `pa_id metric_name` | Entry confirmation | Non-Deferred PA / Archived metric | FR15 |
 | `/account_delete` | active | None | Confirmation prompt → on confirm: grace period notice | User cancels | FR16 |
+| `/cancel` | active | None | "Cancelled. You're back to the main menu." | "Nothing to cancel." (if already Idle) | FR31 |
+| (inline button — metric selection) | active | Callback data: `{picker_metric_id}` — user presses a metric name button; routed when ConversationState = PendingMetricPicker | Last-3-values + selection confirmation in one message (FR26) → originating command proceeds | Expired session / dispatch error | FR26, FR29, FR30 |
+| (inline button — Create metric) | active | Callback data: `{action: "create", typed_name: "<str>"}` — user presses "Create [typed_name]" button; logging zero-match flow only; routed when ConversationState = PendingMetricPicker | Periodicity prompt (FR6 path begins) | — | FR27 |
+| (inline button — Cancel picker) | active | Callback data: `"cancel"` — user presses Cancel button on any picker keyboard; routed when ConversationState = PendingMetricPicker | "Cancelled. You're back to the main menu." (same as FR31) | — | FR31, FR32 |
 
 # Use Cases
 
@@ -196,6 +215,7 @@ Source: [[use-case-diagram|use-case-diagram.puml]]
 - [[uc-13-restore-account|UC13 Restore account]] <- FR17, FR2, @account
 - [[uc-14-request-help|UC14 Request help]] <- FR19, @discovery
 - [[uc-15-manage-alerts|UC15 List and delete alerts]] <- FR20, FR21, @management
+- [[uc-16-select-metric-picker|UC16 Select metric via inline picker]] <- FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, @logging, @management
 
 # State Machines
 
@@ -215,13 +235,14 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Active : FR6 (auto-create) or FR7 (explicit)
+  [*] --> Active : FR6 (Create button via FR27) or FR7 (explicit /metric_create)
   Active --> Archived : FR9 — user archives
   Archived --> Active : FR9 — user reactivates
   Active --> Deleted : FR10 — cascade delete confirmed
   Archived --> Deleted : FR10 — cascade delete confirmed
   Deleted --> [*]
   note right of Archived : Alert evaluation suspended\nEntries and alerts preserved
+  note right of Active : FR6 triggered only by\nexplicit Create button (FR27)\nnot by unrecognized name alone
 ```
 
 ## DM4 Alert lifecycle
@@ -257,15 +278,22 @@ stateDiagram-v2
 ```mermaid
 stateDiagram-v2
   [*] --> Idle
-  Idle --> PendingDisambiguation : FR5 — disambiguation prompt sent
-  Idle --> PendingPeriodicity : FR6 — periodicity prompt sent
-  Idle --> PendingMetricDeletionConfirmation : FR10 — delete confirmation prompt sent
-  Idle --> PendingRestorationConfirmation : FR17 — restoration confirmation prompt sent
-  PendingDisambiguation --> Idle : resolved / deferred / expired
-  PendingPeriodicity --> Idle : periodicity confirmed OR SU-009 timeout (24h)
-  PendingMetricDeletionConfirmation --> Idle : confirmed (cascade delete) OR cancelled
-  PendingRestorationConfirmation --> Idle : confirmed (restored) OR not confirmed
-  note right of PendingPeriodicity : Metric NOT written until\nperiodicity confirmed
+  Idle --> PendingDisambiguation : FR5
+  Idle --> PendingPeriodicity : FR6
+  Idle --> PendingMetricDeletionConfirmation : FR10
+  Idle --> PendingRestorationConfirmation : FR17
+  Idle --> PendingMetricPicker : FR22/FR23
+  PendingDisambiguation --> Idle : resolved / deferred / expired / FR31
+  PendingPeriodicity --> Idle : confirmed / SU-009 timeout / FR31
+  PendingMetricDeletionConfirmation --> Idle : confirmed / cancelled / FR31
+  PendingRestorationConfirmation --> Idle : confirmed / not confirmed / FR31
+  PendingMetricPicker --> Idle : timeout / error / management done / FR31 / FR32
+  PendingMetricPicker --> PendingPickerValue : FR29 metric selected (logging)
+  PendingMetricPicker --> PendingPeriodicity : FR27 Create button (logging zero-match)
+  PendingPickerValue --> Idle : value received FR30 / timeout / FR31 / FR32
+  note right of PendingPeriodicity : Metric not written until periodicity confirmed
+  note right of PendingMetricPicker : Stores command_context and typed_name. Max one per user (BR13).
+  note right of PendingPickerValue : Stores metric_id and metric_name. Awaits numeric value.
 ```
 
 # Business Rules
@@ -282,6 +310,8 @@ stateDiagram-v2
 - BR10 [must] @account PendingDeletion grace period: permanent user data purge must not occur sooner than 72 hours after `deletion_scheduled_timestamp`. Condition: FR18 Scheduled Process PendingDeletion purge step. Enforced at: Scheduled Process timestamp guard. Risk if violated: premature data loss; violates user-facing retention commitment.
 - BR11 [must] @account Onboarding message content: every new user registration must dispatch an onboarding message explicitly stating: (a) 1-year minimum data retention, (b) no data export, (c) verbatim `raw_input` storage, (d) one-shot alert behavior. Condition: InternalUser creation (FR1). Enforced at: Account Manager onboarding message composition. Risk if violated: users uninformed of privacy practices and behavioral constraints.
 - BR12 [must] @account Compound first-contact boundary: if a user's first message is also a data entry, onboarding (FR1) must complete before entry processing begins. Entry failure after successful onboarding must produce an explicit user notification to re-submit — never silently lost. Condition: FR1 compound flow. Enforced at: Account Manager / Entry Processor coordination. Risk if violated: silent data loss at first contact (RISK2).
+- BR13 [must] @logging @management Picker session exclusivity: at most one active PendingMetricPicker session per user at any time. Condition: on FR22/FR23 picker trigger. Enforced at: DM6 ConversationState constraint (one non-Idle state per user, FR3); UC16. Risk if violated: two concurrent picker sessions could result in metric selection being applied to the wrong command context.
+- BR14 [must] @logging No silent metric creation: the system must not create a Metric record as a result of a user typing an unrecognized metric name alone; creation requires an explicit user action (pressing the "Create [typed_name]" inline button per FR27). Condition: on any unrecognized name in the logging/entry flow. Enforced at: FR27 (trigger), FR6 (create, only on button press). Risk if violated: spurious metrics created in user catalog, fragmenting history (RISK3).
 
 # Open Questions
 
@@ -290,6 +320,14 @@ stateDiagram-v2
 - Q3 OI-6 — Alert listing and delete command names (/alert_list, /alert_delete) and exact response format not specified in source. Included as FR20, FR21 per Flow 9 in system_analysis.md. Confirm command names.
 - Q4 OI-7 — Chart default time range and image format — proposed 30 days / PNG / one line per dimension. Pending confirmation. Affects FR14.
 - Q5 OI-8 — Re-registration Telegram ID mapping atomicity — when a Deleted user re-registers, the Telegram_user_id → new internal_user_id mapping must be atomic. Confirm this is enforced in FR1 (Account Manager registration flow).
+
+- Q6 Q-FEAT-1 resolved — shared `PendingMetricPicker` ConversationState used for both bare-command and fuzzy-match triggers; `state_data.command_context` distinguishes originating command. No open items.
+- Q7 Q-FEAT-2 resolved — `PendingPickerValue` is a distinct new ConversationState node for the post-selection value-await step in the logging flow. No open items.
+- Q8 Q-FEAT-3 resolved — rapidfuzz `token_set_ratio`, threshold = 70 (SU-010, configurable). No open items.
+- Q9 Q-FEAT-4 resolved — native Telegram client scroll; no custom pagination needed for "Show all fits". No open items.
+- ~~Q10~~ **Resolved 2026-04-28:** PendingMetricPicker + free-text → show reminder: "Please select a metric from the keyboard above, or use /cancel to cancel action." State not cleared. FR29 and UC16 edge case updated.
+- ~~Q11~~ **Resolved 2026-04-28:** Last-3-values context displayed in the same message as the selection confirmation. FR26 updated.
+- ~~Q12~~ **Resolved 2026-04-28:** PendingPeriodicity reused unchanged for the FR27 Create-button flow. No new state needed.
 
 Resolved from source (recorded for traceability):
 - ~~OI-2~~ NLP library: resolved — rapidfuzz (fuzzy metric matching) + pint + regex (numeric/unit extraction); in-process (technology.md)
@@ -352,4 +390,5 @@ Alert configuration constraint: `Alert.target_dimension` must name a dimension t
 | SU-006 | Config | Deferred ParseAttempt cleanup window — proposed 30 days | Unbounded Deferred accumulation | Confirm with stakeholder (Q1); make configurable |
 | SU-007 | Functional | Timezone handling — UTC default | Period boundaries may feel off for non-UTC users | UTC default accepted; per-user timezone is future enhancement |
 | SU-008 | Business | `raw_input` GDPR classification not formally assessed | May constitute personal data under GDPR Art. 4/9 | Accept for portfolio scope; review before scaling |
-| SU-009 | Config | PendingPeriodicity timeout — default 24h; configurable | Stale PendingPeriodicity states accumulate | Scheduled Process cleans up; default consistent with SU-001 |
+| SU-009 | Config | PendingPeriodicity / PendingMetricPicker / PendingPickerValue timeout — default 24h; configurable (shared timeout value); applies to all three states | Stale states accumulate | Scheduled Process cleans up; default consistent with SU-001 |
+| SU-010 | Algorithmic | Rapidfuzz fuzzy-match threshold — default 70 (0–100 scale); scoring function `token_set_ratio` (case-insensitive); configurable env var `FUZZY_MATCH_THRESHOLD`; below threshold: picker not shown (FR27 or FR28 applies instead) | Too low → false positives, confusing picker; too high → picker misses obvious typos; core R13 testability depends on this value | Tune from picker-invocation telemetry in production; make configurable before deployment; Q-FEAT-3 resolved |

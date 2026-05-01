@@ -1,49 +1,32 @@
-workflow: rewrite-docs
+workflow: feature-addition
 run_mode: full
 stages_requested: [ba, sa, arch, pm]
-stage: done
-last_agent: project-manager
-sa_readiness: Ready for Architecture
-last_score: null
-last_score_at: null
+feature_name: smart-metric-picker
+skipped_stages: []
+stage: arch-approved
+last_agent: architect-reviewer
+last_score: 9.0
+last_score_at: 2026-05-01T00:10Z
+ba_score: 8.70
+sa_score: 9.1
+arch_score: 9.0
+arch_reviewed_by: architect-reviewer
+plan_approved_by: human
+plan_approved_at: 2026-04-29
 revisions:
+  feat: 0
   brd: 0
   srs: 0
-  arch: 0
-  plan: 0
+  arch: 1
 versions:
   brd: 0.1
   srs: 0.1
   arch: 0.1
   plan: 0.1
-open_questions: []
+  plan_feature: 0.1
+open_questions: [Q1, Q2, Q3, Q4, Q5]
+sa_readiness: "Approved (delta) — FR32 Cancel button on picker keyboard traceable to R19/US8/AC8.12; UC16 A6 covers all PendingMetricPicker Cancel paths; 2 minor open items carried forward: F2 (Cancel button routing from PendingPickerValue state unspecified — resolve before callback router implementation), F1 (DM6 diagram arc label missing FR32 — quick fix)"
+arch_readiness: "Approved (delta) — ADR-013 cancel bypass well-specified; NFR18/NFR6/NFR4 all preserved; 3 minor documentation gaps (F3 threat model note, F7 Flow J cancel branch, F9 conversation_state_event annotation) — address before implementation but do not block."
 activities: [logging, management, analytics, alerting, account, discovery, General]
-sa_readiness: null
 human_overrides: []
-source_files:
-  - docsOLD/requirements/business_analysis.md
-  - docsOLD/requirements/system_analysis.md
-  - docsOLD/requirements/architecture.md
-  - docsOLD/requirements/implementation_spec.md
-  - docsOLD/requirements/project_plan.md
-  - docsOLD/requirements/technology.md
-  - docsOLD/requirements/initial_task_setup.md
-  - docsOLD/presentation/project_overview.md
-  - docsOLD/reviews/architecture_review.md
-orphan_decisions:
-  business_analysis_risks: include
-  business_analysis_decision_log: include
-  business_analysis_hypothesis: include
-  business_analysis_traceability: include
-  system_analysis_logical_consistency: include
-  system_analysis_dimension_naming: include
-  system_analysis_periodicity_vocab: include
-  implementation_spec: absorb_into_srs_and_arch
-  technology: adr_012
-  initial_task_setup: brd_context
-  project_overview: project_overview_file
-  architecture_review: archive
-discrepancy_decisions:
-  D1_postgresql: accepted_as_true_no_discrepancy
-  D2_fsm_vs_direct_db: note_only_do_not_edit
-  D3_webhook: accepted_as_true_no_discrepancy
+reviewed_by: architect-reviewer

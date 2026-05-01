@@ -15,7 +15,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
+import structlog
 from rapidfuzz import fuzz, process as fuzz_process
+
+log = structlog.get_logger()
 
 _NUMBER_RE = re.compile(r"\b(\d+(?:[.,]\d+)?)\b")
 
@@ -38,6 +41,36 @@ _SAME_METRIC_SIMILARITY = 75
 
 # Minimum similarity score to include a metric as an ambiguous candidate
 _AMBIGUOUS_FLOOR = 40
+
+
+def fuzzy_match_metrics(
+    typed_name: str,
+    known_metrics: list[str],
+    threshold: int,
+) -> list[str]:
+    """
+    Return metric names from known_metrics whose token_set_ratio against
+    typed_name meets or exceeds threshold (0–100 scale, SU-010).
+
+    Kept strictly separate from the existing parse() disambiguation logic
+    (_SAME_METRIC_SIMILARITY / _AMBIGUOUS_FLOOR) to avoid cross-contamination.
+    Results are ordered by score descending.
+    """
+    if not known_metrics or not typed_name.strip():
+        return []
+    results = fuzz_process.extract(
+        typed_name.strip().lower(),
+        [m.lower() for m in known_metrics],
+        scorer=fuzz.token_set_ratio,
+        limit=None,
+    )
+    # Map lowercased names back to original casing via position
+    lower_to_original = {m.lower(): m for m in known_metrics}
+    return [
+        lower_to_original[name]
+        for name, score, _ in results
+        if score >= threshold
+    ]
 
 
 @dataclass
@@ -95,7 +128,16 @@ def parse(text: str, known_metrics: list[str], threshold: float) -> ParseResult:
         if all_results:
             best_name, best_score, _ = all_results[0]
             if best_score >= _SAME_METRIC_SIMILARITY:
-                # Confident match to an existing metric
+                # Check for multiple high-confidence matches — picking silently would be wrong
+                high_conf = [name for name, score, _ in all_results if score >= _SAME_METRIC_SIMILARITY]
+                if len(high_conf) > 1:
+                    return ParseResult(
+                        metric_name=name_candidate,
+                        value=value,
+                        confidence=confidence,
+                        outcome="ambiguous",
+                        candidate_metrics=high_conf,
+                    )
                 return ParseResult(
                     metric_name=best_name,
                     value=value,

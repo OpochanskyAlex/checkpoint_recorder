@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Metric Picker — Visual Design</title>
+<style>
+  :root {
+    --tg-bg: #17212b;
+    --tg-sidebar: #0d1117;
+    --tg-msg-in: #182533;
+    --tg-msg-out: #2b5278;
+    --tg-btn: #1c3147;
+    --tg-btn-hover: #2a4a6b;
+    --tg-btn-border: #2d5278;
+    --tg-text: #e8eaed;
+    --tg-muted: #7d8e9e;
+    --tg-name: #5da9e3;
+    --tg-green: #4db6ac;
+    --tg-accent: #5288c1;
+    --tg-divider: #1e2d3d;
+    --scenario-gap: 40px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0e13;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--tg-text);
+    padding: 32px 24px 64px;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: #a8c7e8;
+    margin-bottom: 6px;
+    letter-spacing: .3px;
+  }
+
+  .subtitle {
+    text-align: center;
+    font-size: 13px;
+    color: var(--tg-muted);
+    margin-bottom: 40px;
+  }
+
+  .scenarios {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--scenario-gap);
+    max-width: 1320px;
+    margin: 0 auto;
+  }
+
+  .scenario {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .scenario-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--tg-accent);
+    margin-bottom: 10px;
+    padding-left: 4px;
+  }
+
+  /* Telegram chat window */
+  .chat {
+    background: var(--tg-bg);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--tg-divider);
+    box-shadow: 0 8px 32px rgba(0,0,0,.5);
+  }
+
+  .chat-header {
+    background: #1c2a3a;
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--tg-divider);
+  }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #2e5c8a, #4a90d9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .chat-header-info .name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--tg-text);
+  }
+  .chat-header-info .status {
+    font-size: 11px;
+    color: var(--tg-green);
+  }
+
+  .messages {
+    padding: 14px 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 80px;
+  }
+
+  /* Date divider */
+  .date-divider {
+    text-align: center;
+    font-size: 11px;
+    color: var(--tg-muted);
+    margin: 4px 0 8px;
+  }
+
+  /* Message bubbles */
+  .msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 88%;
+  }
+  .msg.out { align-self: flex-end; align-items: flex-end; }
+  .msg.in  { align-self: flex-start; align-items: flex-start; }
+
+  .bubble {
+    padding: 8px 12px;
+    border-radius: 12px;
+    font-size: 13.5px;
+    line-height: 1.45;
+    position: relative;
+    word-break: break-word;
+  }
+  .msg.out .bubble {
+    background: var(--tg-msg-out);
+    border-bottom-right-radius: 4px;
+    color: var(--tg-text);
+  }
+  .msg.in .bubble {
+    background: var(--tg-msg-in);
+    border-bottom-left-radius: 4px;
+    color: var(--tg-text);
+  }
+
+  .bubble .sender {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--tg-name);
+    margin-bottom: 3px;
+  }
+
+  .bubble code {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    background: rgba(255,255,255,.08);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12.5px;
+  }
+
+  .bubble b { font-weight: 600; }
+  .bubble em { color: var(--tg-muted); font-style: normal; font-size: 12.5px; }
+
+  .time {
+    font-size: 10.5px;
+    color: var(--tg-muted);
+    margin-top: 3px;
+    padding: 0 4px;
+  }
+
+  /* Inline keyboard */
+  .keyboard {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+  }
+
+  .kb-row {
+    display: flex;
+    gap: 4px;
+  }
+
+  .kb-btn {
+    flex: 1;
+    background: var(--tg-btn);
+    border: 1px solid var(--tg-btn-border);
+    border-radius: 8px;
+    padding: 7px 8px;
+    font-size: 12.5px;
+    color: var(--tg-text);
+    text-align: center;
+    cursor: pointer;
+    transition: background .15s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .kb-btn:hover { background: var(--tg-btn-hover); }
+  .kb-btn.selected {
+    background: #1a4a7a;
+    border-color: var(--tg-accent);
+    color: #8ec4f0;
+  }
+  .kb-btn.create-btn {
+    background: #1a3a1a;
+    border-color: #2d6b2d;
+    color: #7ec87e;
+  }
+  .kb-btn.show-all {
+    background: #1e2d3d;
+    border-color: #2a4060;
+    color: #8aa8c8;
+    font-size: 12px;
+  }
+  .kb-btn.cancel-btn {
+    background: #2d1a1a;
+    border-color: #6b2d2d;
+    color: #c87e7e;
+    font-size: 12px;
+  }
+
+  /* Last values table */
+  .last-values {
+    margin: 6px 0 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .lv-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--tg-muted);
+  }
+  .lv-row .lv-val {
+    color: #9ecfff;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  /* Flow arrow between messages */
+  .flow-step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tg-muted);
+    font-size: 11px;
+    gap: 6px;
+    padding: 2px 0;
+  }
+  .flow-step::before, .flow-step::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--tg-divider);
+  }
+
+  /* Highlight box for new prompt */
+  .prompt-highlight {
+    background: rgba(82,136,193,.12);
+    border-left: 3px solid var(--tg-accent);
+    border-radius: 0 6px 6px 0;
+    padding: 5px 10px;
+    font-size: 13px;
+    margin-top: 5px;
+    color: #a8c8e8;
+  }
+
+  /* Legend */
+  .legend {
+    max-width: 1320px;
+    margin: 40px auto 0;
+    padding: 18px 20px;
+    background: #111820;
+    border: 1px solid var(--tg-divider);
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 32px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--tg-muted);
+  }
+  .legend-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .legend-item strong { color: var(--tg-text); display: block; margin-bottom: 1px; }
+</style>
+</head>
+<body>
+
+<h1>Smart Metric Picker — Interaction Design</h1>
+<p class="subtitle">checkpoint_recorder · feature: smart-metric-picker · FR22–FR31 · UC16</p>
+
+<div class="scenarios">
+
+  <!-- SCENARIO 1: Bare command -->
+  <div class="scenario">
+    <div class="scenario-label">Flow 1 — Bare command (no metric name)</div>
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar">📊</div>
+        <div class="chat-header-info">
+          <div class="name">Checkpoint Bot</div>
+          <div class="status">online</div>
+        </div>
+      </div>
+      <div class="messages">
+        <div class="date-divider">Today</div>
+
+        <div class="msg out">
+          <div class="bubble"><code>/log</code></div>
+          <div class="time">14:01</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Which metric do you want to log?<br>
+            <em>Select from your recent metrics:</em>
+            <div class="keyboard">
+              <div class="kb-row">
+                <div class="kb-btn">⚖️ Weight</div>
+                <div class="kb-btn">💤 Sleep hrs</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn">❤️ Pulse</div>
+                <div class="kb-btn">😊 Mood</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn show-all">Show all fits (7)</div>
+              </div>
+            </div>
+          </div>
+          <div class="time">14:01</div>
+        </div>
+
+        <div class="flow-step">user taps Weight</div>
+
+        <div class="msg out">
+          <div class="bubble" style="opacity:.55;font-size:12px;">⚖️ Weight <em>[selected]</em></div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            <b>⚖️ Weight</b> — last 3 values:
+            <div class="last-values">
+              <div class="lv-row"><span>Apr 27</span><span class="lv-val">81.5 kg</span></div>
+              <div class="lv-row"><span>Apr 25</span><span class="lv-val">82.0 kg</span></div>
+              <div class="lv-row"><span>Apr 23</span><span class="lv-val">81.8 kg</span></div>
+            </div>
+            <div class="prompt-highlight">Enter new value:</div>
+          </div>
+          <div class="time">14:01</div>
+        </div>
+
+        <div class="msg out">
+          <div class="bubble">81.2</div>
+          <div class="time">14:02</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Logged <b>81.2 kg</b> for <b>Weight</b>. ✓
+          </div>
+          <div class="time">14:02</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO 2: Fuzzy / mistyped name -->
+  <div class="scenario">
+    <div class="scenario-label">Flow 2 — Fuzzy / mistyped metric name</div>
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar">📊</div>
+        <div class="chat-header-info">
+          <div class="name">Checkpoint Bot</div>
+          <div class="status">online</div>
+        </div>
+      </div>
+      <div class="messages">
+        <div class="date-divider">Today</div>
+
+        <div class="msg out">
+          <div class="bubble"><code>/chart wieght</code></div>
+          <div class="time">14:10</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            No exact match for <b>"wieght"</b>. Did you mean:
+            <div class="keyboard">
+              <div class="kb-row">
+                <div class="kb-btn">⚖️ Weight</div>
+                <div class="kb-btn">📏 Waist cm</div>
+              </div>
+            </div>
+            <em style="font-size:11.5px;margin-top:6px;display:block;">
+              Or use /cancel to abort.
+            </em>
+          </div>
+          <div class="time">14:10</div>
+        </div>
+
+        <div class="flow-step">user taps Weight</div>
+
+        <div class="msg out">
+          <div class="bubble" style="opacity:.55;font-size:12px;">⚖️ Weight <em>[selected]</em></div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            <b>⚖️ Weight</b> — last 3 values:
+            <div class="last-values">
+              <div class="lv-row"><span>Apr 27</span><span class="lv-val">81.5 kg</span></div>
+              <div class="lv-row"><span>Apr 25</span><span class="lv-val">82.0 kg</span></div>
+              <div class="lv-row"><span>Apr 23</span><span class="lv-val">81.8 kg</span></div>
+            </div>
+          </div>
+          <div class="time">14:10</div>
+        </div>
+
+        <div class="msg in" style="margin-top:2px;">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Generating chart for <b>Weight</b> — last 30 days…
+          </div>
+          <div class="time">14:10</div>
+        </div>
+
+        <div class="msg in" style="margin-top:2px;">
+          <div class="bubble" style="padding:4px 6px;">
+            <div style="background:#1a2a3a;border-radius:8px;padding:24px;text-align:center;color:#3d6a9a;font-size:12px;">
+              📈 [chart image]
+            </div>
+          </div>
+          <div class="time">14:10</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO 3: Overflow — Show all fits -->
+  <div class="scenario">
+    <div class="scenario-label">Flow 3 — Overflow: "Show all fits"</div>
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar">📊</div>
+        <div class="chat-header-info">
+          <div class="name">Checkpoint Bot</div>
+          <div class="status">online</div>
+        </div>
+      </div>
+      <div class="messages">
+        <div class="date-divider">Today</div>
+
+        <div class="msg out">
+          <div class="bubble"><code>/metric_archive bl</code></div>
+          <div class="time">15:00</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Multiple metrics match <b>"bl"</b>:
+            <div class="keyboard">
+              <div class="kb-row">
+                <div class="kb-btn">🩸 Blood sugar</div>
+                <div class="kb-btn">💉 Blood press.</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn">🫁 Breathing</div>
+                <div class="kb-btn">😴 Blue light</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn show-all">Show all fits (6)</div>
+              </div>
+            </div>
+          </div>
+          <div class="time">15:00</div>
+        </div>
+
+        <div class="flow-step">user taps "Show all fits"</div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            All 6 matches for <b>"bl"</b>:
+            <div class="keyboard">
+              <div class="kb-row">
+                <div class="kb-btn">🩸 Blood sugar</div>
+                <div class="kb-btn">💉 Blood press.</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn">🫁 Breathing</div>
+                <div class="kb-btn">😴 Blue light</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn">🏃 Blocks run</div>
+                <div class="kb-btn">🔵 BLE steps</div>
+              </div>
+            </div>
+          </div>
+          <div class="time">15:00</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO 4: Zero matches — logging → Create button -->
+  <div class="scenario">
+    <div class="scenario-label">Flow 4 — Zero matches (logging): Create button</div>
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar">📊</div>
+        <div class="chat-header-info">
+          <div class="name">Checkpoint Bot</div>
+          <div class="status">online</div>
+        </div>
+      </div>
+      <div class="messages">
+        <div class="date-divider">Today</div>
+
+        <div class="msg out">
+          <div class="bubble">pushups 40</div>
+          <div class="time">16:20</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            No existing metric matches <b>"pushups"</b>.
+            <div class="keyboard">
+              <div class="kb-row">
+                <div class="kb-btn create-btn">＋ Create "pushups"</div>
+              </div>
+            </div>
+            <em style="font-size:11.5px;margin-top:6px;display:block;">
+              Or use /cancel to abort.
+            </em>
+          </div>
+          <div class="time">16:20</div>
+        </div>
+
+        <div class="flow-step">user taps Create "pushups"</div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            How often do you plan to log <b>pushups</b>?<br>
+            <em>daily · weekly · monthly · custom</em>
+          </div>
+          <div class="time">16:20</div>
+        </div>
+
+        <div class="msg out">
+          <div class="bubble">daily</div>
+          <div class="time">16:20</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Metric <b>pushups</b> created (daily).<br>
+            Logged <b>40</b> for <b>pushups</b>. ✓
+          </div>
+          <div class="time">16:20</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO 5: Zero matches — management command -->
+  <div class="scenario">
+    <div class="scenario-label">Flow 5 — Zero matches (management): no picker</div>
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar">📊</div>
+        <div class="chat-header-info">
+          <div class="name">Checkpoint Bot</div>
+          <div class="status">online</div>
+        </div>
+      </div>
+      <div class="messages">
+        <div class="date-divider">Today</div>
+
+        <div class="msg out">
+          <div class="bubble"><code>/metric_delete xyzabc</code></div>
+          <div class="time">17:05</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            No metrics found matching <b>"xyzabc"</b>.
+          </div>
+          <div class="time">17:05</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- SCENARIO 6: /cancel mid-picker -->
+  <div class="scenario">
+    <div class="scenario-label">Flow 6 — Cancel mid-picker</div>
+    <div class="chat">
+      <div class="chat-header">
+        <div class="avatar">📊</div>
+        <div class="chat-header-info">
+          <div class="name">Checkpoint Bot</div>
+          <div class="status">online</div>
+        </div>
+      </div>
+      <div class="messages">
+        <div class="date-divider">Today</div>
+
+        <div class="msg out">
+          <div class="bubble"><code>/alert_set</code></div>
+          <div class="time">17:30</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Which metric do you want to set an alert on?
+            <div class="keyboard">
+              <div class="kb-row">
+                <div class="kb-btn">⚖️ Weight</div>
+                <div class="kb-btn">🩸 Blood sugar</div>
+              </div>
+              <div class="kb-row">
+                <div class="kb-btn">❤️ Pulse</div>
+                <div class="kb-btn">😊 Mood</div>
+              </div>
+            </div>
+            <em style="font-size:11.5px;margin-top:6px;display:block;">
+              Please select a metric from the keyboard above, or use /cancel to cancel action.
+            </em>
+          </div>
+          <div class="time">17:30</div>
+        </div>
+
+        <div class="msg out">
+          <div class="bubble"><code>/cancel</code></div>
+          <div class="time">17:31</div>
+        </div>
+
+        <div class="msg in">
+          <div class="bubble">
+            <div class="sender">Checkpoint Bot</div>
+            Cancelled. You're back to the main menu.
+          </div>
+          <div class="time">17:31</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#5288c1;"></div>
+    <div><strong>Inline keyboard (up to 4)</strong>Metrics ordered by most recently logged. Pressing a button resolves the metric and continues the command.</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#4a7a9a;"></div>
+    <div><strong>Show all fits</strong>Appears when &gt;4 fuzzy matches exist. Expands the keyboard in-place to show every match.</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#2d6b2d;"></div>
+    <div><strong>Create button</strong>Only shown in logging flow when zero metrics match. Starts new-metric creation flow (periodicity prompt).</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#4db6ac;"></div>
+    <div><strong>Last 3 values</strong>Shown immediately after metric selection in logging flow, before asking for new value.</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#9ecfff;"></div>
+    <div><strong>State: PendingMetricPicker</strong>Active from keyboard display until selection or /cancel. At most one per user (BR13).</div>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#c87e7e;"></div>
+    <div><strong>/cancel (FR31)</strong>Clears PendingMetricPicker or PendingPickerValue state at any point, returns to Idle.</div>
+  </div>
+</div>
+
+</body>
+</html>

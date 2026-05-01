@@ -16,6 +16,7 @@ from checkpoint_recorder.components import nlp_engine, observability
 from checkpoint_recorder.components.metric_manager import (
     create_metric,
     get_metric_by_name,
+    get_metrics_ordered_by_recency,
     get_user_metric_names,
 )
 from checkpoint_recorder.components.parse_attempt_manager import (
@@ -54,7 +55,7 @@ async def process_entry(
     text: str,
     message_date: datetime,
     bot=None,
-) -> tuple[str, bool]:
+) -> tuple[str, bool, object]:
     """
     Parse and store a data entry for an Idle user.
     Returns (reply_text, entry_stored).
@@ -76,10 +77,48 @@ async def process_entry(
             "I couldn't identify a metric and value in your message.\n"
             "Try something like: <b>weight 80</b> or <b>ran 5</b>",
             False,
+            None,
         )
 
+    print(f"[EP] outcome={result.outcome!r} metric_name={result.metric_name!r} candidates={result.candidate_metrics}")
     if result.outcome == "ambiguous":
-        # Create ParseAttempt + enter PendingDisambiguation state (FR-5)
+        # When the picker is active and all candidates are existing metrics,
+        # show the picker keyboard instead of text-based disambiguation.
+        if settings.fuzzy_match_threshold > 0 and result.candidate_metrics:
+            from checkpoint_recorder.components.picker_keyboard import build_picker_keyboard
+            all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+            candidate_set = set(result.candidate_metrics)
+            matching = [m for m in all_metrics if m.name in candidate_set]
+            if matching:
+                conv_state.state = ConversationStateEnum.PendingMetricPicker
+                conv_state.state_data = {
+                    "command_context": "logging",
+                    "typed_name": result.metric_name,
+                    "pending_value": result.value,
+                    "original_timestamp": message_date.isoformat(),
+                    "raw_input": text,
+                }
+                await session.commit()
+                await observability.emit(
+                    session,
+                    "picker_invocation_event",
+                    {
+                        "user_id": str(user.id),
+                        "command_context": "logging",
+                        "trigger_type": "ambiguous",
+                        "matched_count": len(matching),
+                        "typed_name_present": True,
+                    },
+                )
+                await session.commit()
+                keyboard = build_picker_keyboard(matching)
+                return (
+                    f'Multiple metrics match "<b>{result.metric_name}</b>". Which one?',
+                    False,
+                    keyboard,
+                )
+
+        # Fallback: text-based ParseAttempt disambiguation (FR-5)
         pa, error = await create_parse_attempt(
             session, user, text, result.candidate_metrics
         )
@@ -105,13 +144,85 @@ async def process_entry(
         await session.commit()
 
         prompt = build_disambiguation_prompt(result.candidate_metrics, text)
-        return prompt, False
+        return prompt, False, None
 
     # Outcome is auto-parse — look up or auto-create the metric
     metric = await get_metric_by_name(session, user.id, result.metric_name)
 
     if metric is None:
-        # New metric — dispatch periodicity prompt, enter PendingPeriodicity (FR-6)
+        # Smart metric picker intercept (FR22, FR23) — only when threshold > 0
+        if settings.fuzzy_match_threshold > 0:
+            from checkpoint_recorder.components.nlp_engine import fuzzy_match_metrics
+            from checkpoint_recorder.components.picker_keyboard import (
+                build_create_keyboard,
+                build_picker_keyboard,
+            )
+            fuzzy_names = fuzzy_match_metrics(
+                result.metric_name, known_names, settings.fuzzy_match_threshold
+            )
+            if fuzzy_names:
+                # One or more fuzzy matches — show picker keyboard
+                all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+                fuzzy_set = set(fuzzy_names)
+                matching = [m for m in all_metrics if m.name in fuzzy_set]
+                conv_state.state = ConversationStateEnum.PendingMetricPicker
+                conv_state.state_data = {
+                    "command_context": "logging",
+                    "typed_name": result.metric_name,
+                    "pending_value": result.value,
+                    "original_timestamp": message_date.isoformat(),
+                    "raw_input": text,
+                }
+                await session.commit()
+                await observability.emit(
+                    session,
+                    "picker_invocation_event",
+                    {
+                        "user_id": str(user.id),
+                        "command_context": "logging",
+                        "trigger_type": "fuzzy",
+                        "matched_count": len(fuzzy_names),
+                        "typed_name_present": True,
+                    },
+                )
+                await session.commit()
+                keyboard = build_picker_keyboard(matching)
+                return (
+                    f'No exact match for "<b>{result.metric_name}</b>". Did you mean:',
+                    False,
+                    keyboard,
+                )
+            else:
+                # Zero fuzzy matches — offer Create button (FR27)
+                conv_state.state = ConversationStateEnum.PendingMetricPicker
+                conv_state.state_data = {
+                    "command_context": "logging",
+                    "typed_name": result.metric_name,
+                    "pending_value": result.value,
+                    "original_timestamp": message_date.isoformat(),
+                    "raw_input": text,
+                }
+                await session.commit()
+                await observability.emit(
+                    session,
+                    "picker_invocation_event",
+                    {
+                        "user_id": str(user.id),
+                        "command_context": "logging",
+                        "trigger_type": "fuzzy",
+                        "matched_count": 0,
+                        "typed_name_present": True,
+                    },
+                )
+                await session.commit()
+                keyboard = build_create_keyboard(result.metric_name)
+                return (
+                    f'No existing metric matches "<b>{result.metric_name}</b>".',
+                    False,
+                    keyboard,
+                )
+
+        # fuzzy_match_threshold == 0: fall through to original PendingPeriodicity flow
         conv_state.state = ConversationStateEnum.PendingPeriodicity
         conv_state.state_data = {
             "pending_metric_name": result.metric_name,
@@ -121,7 +232,7 @@ async def process_entry(
         }
         await session.commit()
 
-        return _PERIODICITY_PROMPT.format(name=result.metric_name), False
+        return _PERIODICITY_PROMPT.format(name=result.metric_name), False, None
 
     # Existing metric — write Entry atomically (FR-4)
     entry = Entry(
@@ -152,7 +263,7 @@ async def process_entry(
         await evaluate_alerts(session, bot, entry, metric, user)
 
     unit_str = f" {metric.unit}" if metric.unit else ""
-    return f"✓ Logged <b>{result.value}{unit_str}</b> for <b>{metric.name}</b>", True
+    return f"✓ Logged <b>{result.value}{unit_str}</b> for <b>{metric.name}</b>", True, None
 
 
 async def handle_periodicity_response(

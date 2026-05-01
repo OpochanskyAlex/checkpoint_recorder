@@ -11,7 +11,8 @@ activities: [management]
 refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
-updated: 2026-04-26
+  - {doc: feat-smart-metric-picker, version: 0.1}
+updated: 2026-04-28
 tags: [project-docs, use-case]
 ---
 
@@ -81,6 +82,7 @@ Branches from step 5.
 - **Metric with Active alerts deleted** → Active alerts deleted without additional warning beyond the confirmation in step 3.
 - **Metric with Pending ParseAttempt deleted** → ParseAttempt transitions to Expired; raw_input purged as part of cascade.
 - **No grace period** — unlike account deletion, metric deletion has no grace period. Confirmation prompt is the sole protection.
+- **Bare or fuzzy-name command (2026-04-28 smart-metric-picker delta)** — when `/metric_delete` is issued without an exact metric name match, [[uc-16-select-metric-picker|UC16]] executes first and resolves the metric name via the inline picker; after selection UC16 transitions ConversationState to PendingMetricDeletionConfirmation and this UC's main flow begins at step 3 (FR22, FR23, FR29).
 
 ## Non-functional considerations
 

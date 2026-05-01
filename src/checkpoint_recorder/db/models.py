@@ -53,6 +53,8 @@ class ConversationStateEnum(str, enum.Enum):
     PendingDisambiguation = "PendingDisambiguation"
     PendingMetricDeletionConfirmation = "PendingMetricDeletionConfirmation"
     PendingRestorationConfirmation = "PendingRestorationConfirmation"
+    PendingMetricPicker = "PendingMetricPicker"
+    PendingPickerValue = "PendingPickerValue"
 
 
 class AlertCondition(str, enum.Enum):

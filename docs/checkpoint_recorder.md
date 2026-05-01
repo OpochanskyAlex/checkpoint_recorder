@@ -41,8 +41,8 @@ Canonical activity taxonomy used in `@` tags across all requirements. Owned by b
 
 - **BRD:** [[brd|Business Requirements]]
 - **User stories by activity:**
-  - **@logging:** [[us-1-log-metric|US1 Log a metric in free text]] · [[us-2-resolve-ambiguous|US2 Resolve an ambiguous entry]]
-  - **@management:** [[us-3-manage-metrics|US3 Manage metric catalog]]
+  - **@logging:** [[us-1-log-metric|US1 Log a metric in free text]] · [[us-2-resolve-ambiguous|US2 Resolve an ambiguous entry]] · [[us-8-metric-picker|US8 Select a metric via inline picker]]
+  - **@management:** [[us-3-manage-metrics|US3 Manage metric catalog]] · [[us-8-metric-picker|US8 Select a metric via inline picker]]
   - **@analytics:** [[us-4-view-charts|US4 View trend charts]]
   - **@alerting:** [[us-5-set-alerts|US5 Set and manage threshold alerts]]
   - **@account:** [[us-6-manage-account|US6 Manage account]]

@@ -11,7 +11,8 @@ activities: [alerting]
 refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
-updated: 2026-04-26
+  - {doc: feat-smart-metric-picker, version: 0.1}
+updated: 2026-04-28
 tags: [project-docs, use-case]
 ---
 
@@ -66,3 +67,4 @@ Activity tags: `@alerting`
 - **Multiple alerts on same metric/dimension** → allowed; no uniqueness constraint on alerts per metric/dimension pair.
 - **Threshold = 0** → allowed.
 - **Alert set on metric that later becomes Archived** → existing alert preserved in Active status; evaluation suspended for new entries until reactivation (UC6).
+- **Bare or fuzzy-name command (2026-04-28 smart-metric-picker delta)** — when `/alert_set` is issued without an exact metric name match, [[uc-16-select-metric-picker|UC16]] executes first and resolves the metric name via the inline picker before this UC's main flow begins at step 2 (FR22, FR23). If zero fuzzy matches: FR28 delivers "no matching metrics found" and `/alert_set` is not executed.

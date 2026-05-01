@@ -18,6 +18,7 @@ rectangle "Checkpoint Recorder Bot" {
     usecase "UC2\nLog metric\n(auto-parsed)" as UC2
     usecase "UC3\nResolve ambiguous\nentry" as UC3
     usecase "UC11\nCategorize\ndeferred entry" as UC11
+    usecase "UC16\nSelect metric\nvia inline picker" as UC16
   }
 
   package "Management" {
@@ -58,13 +59,21 @@ User --> UC12
 User --> UC13
 User --> UC14
 User --> UC15
+User --> UC16
 
 ' Scheduled Process interactions
 Sched --> UC12 : purge after\n72h grace period
 
 ' Key extends
 UC2 ..> UC3 : <<extend>>\nambiguous NLP result
-UC2 ..> UC4 : <<extend>>\nnew metric name
+UC2 ..> UC4 : <<extend>>\nnew metric name\n(explicit /metric_create;\nzero-match logging\nnow via UC16→FR27→FR6)
 UC1 ..> UC2 : <<extend>>\nfirst message is\nalso a data entry
+
+' UC16 extends (smart-metric-picker)
+UC16 ..> UC2 : <<extend>>\nno exact metric match\n(logging flow)
+UC16 ..> UC6 : <<extend>>\nno exact metric match
+UC16 ..> UC7 : <<extend>>\nno exact metric match
+UC16 ..> UC8 : <<extend>>\nno exact metric match
+UC16 ..> UC10 : <<extend>>\nno exact metric match
 
 @enduml

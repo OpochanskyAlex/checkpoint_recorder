@@ -24,9 +24,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from checkpoint_recorder.components import observability
 from checkpoint_recorder.components.chart_generator import render_chart
-from checkpoint_recorder.components.metric_manager import get_metric_by_name
+from checkpoint_recorder.components.metric_manager import (
+    get_metric_by_name,
+    get_metrics_ordered_by_recency,
+    get_user_metric_names,
+)
+from checkpoint_recorder.components.picker_keyboard import (
+    build_picker_keyboard,
+    build_zero_match_message,
+)
 from checkpoint_recorder.db.engine import AsyncSessionFactory
-from checkpoint_recorder.db.models import Entry, InternalUser, MetricStatus
+from checkpoint_recorder.db.models import (
+    ConversationState,
+    ConversationStateEnum,
+    Entry,
+    InternalUser,
+    MetricStatus,
+)
 
 log = structlog.get_logger()
 router = Router(name="chart")
@@ -39,20 +53,17 @@ async def cmd_chart(
     message: Message,
     command: CommandObject,
     user: InternalUser,
+    conv_state: ConversationState,
     session: AsyncSession,
 ) -> None:
     """Generate and deliver a time-series chart for a metric (FR-14)."""
-    args = (command.args or "").split()
-    if not args:
-        await message.answer(
-            "Usage: /chart <b>&lt;metric_name&gt;</b> [days]\n\n"
-            "Example: /chart weight 30"
-        )
-        return
+    from checkpoint_recorder.components.nlp_engine import fuzzy_match_metrics
+    from checkpoint_recorder.config import settings
 
-    metric_name = args[0]
+    args = (command.args or "").split()
     days = _DEFAULT_DAYS
-    if len(args) >= 2:
+
+    if args and len(args) >= 2:
         try:
             days = int(args[1])
             if days < 1 or days > 3650:
@@ -62,8 +73,43 @@ async def cmd_chart(
             await message.answer("Days must be a whole number.")
             return
 
+    metric_name = args[0] if args else ""
+
+    if not metric_name:
+        # Bare /chart — show picker with all metrics (FR22)
+        all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+        if not all_metrics:
+            await message.answer("You have no metrics yet.")
+            return
+        conv_state.state = ConversationStateEnum.PendingMetricPicker
+        conv_state.state_data = {"command_context": "chart", "typed_name": "", "chart_days": days}
+        await session.commit()
+        await message.answer(
+            "Which metric would you like to chart?",
+            reply_markup=build_picker_keyboard(all_metrics),
+        )
+        return
+
     # Validate metric (AC-FR14-4: Archived is allowed)
     metric = await get_metric_by_name(session, user.id, metric_name)
+
+    if metric is None and settings.fuzzy_match_threshold > 0:
+        known_names = await get_user_metric_names(session, user.id)
+        fuzzy_names = fuzzy_match_metrics(metric_name, known_names, settings.fuzzy_match_threshold)
+        if fuzzy_names:
+            all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+            matching = [m for m in all_metrics if m.name in set(fuzzy_names)]
+            conv_state.state = ConversationStateEnum.PendingMetricPicker
+            conv_state.state_data = {"command_context": "chart", "typed_name": metric_name, "chart_days": days}
+            await session.commit()
+            await message.answer(
+                f'No exact match for "<b>{metric_name}</b>". Did you mean:',
+                reply_markup=build_picker_keyboard(matching),
+            )
+            return
+        await message.answer(build_zero_match_message("chart"))
+        return
+
     if metric is None:
         await message.answer(
             f"No metric named '<b>{metric_name}</b>' found. "
