@@ -10,9 +10,10 @@ reviewed_by: null
 score: null
 activities: [logging, management]
 refs:
+  - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
 related: [ADR-001, ADR-002]
-updated: 2026-04-28
+updated: 2026-05-01
 tags: [project-docs, adr]
 ---
 
@@ -25,7 +26,7 @@ Prior to the smart-metric-picker feature, the bot handled only text Message even
 The smart-metric-picker feature introduces inline keyboard buttons (FR22–FR30). When a user presses an inline keyboard button, Telegram sends a `CallbackQuery` event — a distinct event type from a text Message. This requires a structurally new routing path in Message Dispatcher. Key considerations:
 
 1. CallbackQuery events arrive independently of any subsequent text message; they carry an opaque `callback_data` string defined at keyboard construction time and a `message_id` that identifies the message to edit/answer.
-2. The picker presents two callback action types: (a) metric selection (user picks a metric by pressing its button) and (b) "Create [typed_name]" (zero-match logging flow only). These must be distinguishable at the routing layer without requiring a DB read before dispatch.
+2. The picker presents three callback action types: (a) metric selection (user picks a metric by pressing its button), (b) "Create [typed_name]" (zero-match logging flow only), and (c) Cancel (present on every picker keyboard display; produces the same outcome as the `/cancel` command). These must be distinguishable at the routing layer without requiring a DB read before dispatch.
 3. ConversationState remains the primary routing guard: a CallbackQuery received when the user is not in `PendingMetricPicker` state must be rejected gracefully (UC16 E3 — stale callback).
 4. Future inline keyboard interactions (e.g., confirmation dialogs, pagination if ever added) will reuse the same pattern.
 5. The `callback_data` field has a Telegram limit of 64 bytes.
@@ -40,11 +41,12 @@ Specifically:
 
 1. **Message Dispatcher registers a CallbackQuery handler** in addition to the existing Message handler. aiogram 3.x supports this natively with `@router.callback_query(...)` decorators. No separate dispatcher or process is introduced (consistent with [[adr-001-monolith|ADR-001]]).
 
-2. **callback_data encoding:** A compact JSON or colon-delimited string encodes the action type and the relevant identifier. Two action types for the picker:
+2. **callback_data encoding:** A compact colon-delimited string encodes the action type and the relevant identifier. Three action types for the picker:
    - `pick:<metric_id>` — user selected a metric; `metric_id` is the UUID of the selected metric (36-char UUID fits within the 64-byte limit alongside the prefix).
    - `create:<typed_name>` — user pressed the "Create [typed_name]" button; `typed_name` is the user's typed string, truncated to fit within the 64-byte total limit.
+   - `cancel` — user pressed the Cancel button; 6 bytes; no payload. Routed to the FR31/FR32 Idle-transition path from ANY non-Idle ConversationState (not only PendingMetricPicker); the state gate in Decision step 3 does NOT reject this action type even when state ≠ PendingMetricPicker.
 
-3. **State gate:** The CallbackQuery handler checks the user's ConversationState via USG before dispatching. If state ≠ `PendingMetricPicker`, the callback is rejected: Telegram's `answer_callback_query` is called (required to clear the "loading" spinner), and the user receives "Session expired. Please re-issue the command." (UC16 E3). No state change occurs.
+3. **State gate:** The CallbackQuery handler checks the user's ConversationState via USG before dispatching. If state ≠ `PendingMetricPicker` AND `callback_data ≠ "cancel"`, the callback is rejected: Telegram's `answer_callback_query` is called (required to clear the "loading" spinner), and the user receives "Session expired. Please re-issue the command." (UC16 E3). No state change occurs. Exception: `callback_data = "cancel"` bypasses the state gate and always routes to the FR31/FR32 outcome (ConversationState → Idle from any non-Idle state).
 
 4. **Ownership-validation before use:** For `pick:<metric_id>`, the Data Repository confirms the metric belongs to `internal_user_id` before any downstream action. This prevents a crafted or replayed callback from acting on another user's metric.
 
@@ -81,7 +83,7 @@ Specifically:
 ## Negative
 - Message Dispatcher now handles two distinct aiogram event types (Message and CallbackQuery); test coverage must include both paths
 - The 64-byte callback_data limit constrains `typed_name` in the `create:<typed_name>` action; typed names longer than ~57 bytes must be truncated. This is acceptable: the full typed_name is preserved in DM6 ConversationState state_data and is not reconstructed from callback_data.
-- Stale inline keyboards in Telegram chat history (from a previous picker session) remain visible to the user after the session expires. Pressing a button on a stale keyboard triggers UC16 E3 gracefully, but the visual presence of the old keyboard cannot be removed retroactively (Telegram does not support deleting old inline keyboards unless the bot edits or deletes the message, which is not guaranteed).
+- Stale inline keyboards in Telegram chat history (from a previous picker session) remain visible to the user after the session expires. Pressing a non-cancel button on a stale keyboard triggers UC16 E3 gracefully. Pressing the Cancel button on a stale keyboard always works (it routes to FR31/FR32 from any non-Idle state), providing a reliable escape path even from stale UIs.
 - The ownership-validation DB read (Decision step 4) adds a mandatory DB round-trip on every CallbackQuery event; within the NFR18 budget at stated scale (≤20 users × ≤20 metrics); re-evaluate at the 20-user ceiling.
 
 ## Follow-ups

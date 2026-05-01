@@ -11,13 +11,13 @@ activities: [logging, management]
 refs:
   - {doc: brd, version: 0.1}
   - {doc: feat-smart-metric-picker, version: 0.1}
-updated: 2026-04-28
+updated: 2026-05-01
 tags: [project-docs, user-story]
 ---
 
 # US8: Select a metric via inline picker
 
-Traces to [[brd#R12|R12]], [[brd#R13|R13]], [[brd#R14|R14]], [[brd#R15|R15]], [[brd#R16|R16]], [[brd#R17|R17]], [[brd#R18|R18]], [[brd#G1|G1]], [[brd#G2|G2]].
+Traces to [[brd#R12|R12]], [[brd#R13|R13]], [[brd#R14|R14]], [[brd#R15|R15]], [[brd#R16|R16]], [[brd#R17|R17]], [[brd#R18|R18]], [[brd#R19|R19]], [[brd#G1|G1]], [[brd#G2|G2]].
 
 Activity tags: `@logging`, `@management`
 
@@ -47,6 +47,7 @@ As a **user issuing a metric-name-required command**, I want the bot to show me 
 **Recency ordering:**
 - AC8.10 Given two metrics where metric A has its most recent entry more recent than metric B, metric A appears before metric B in the picker list.
 - AC8.11 Given two metrics both have no entries, they appear after all metrics-with-entries and are ordered alphabetically by metric name (case-insensitive).
+- AC8.12 Given the user presses the Cancel button on any picker keyboard (bare command, fuzzy match, overflow, or zero-match Create-button display), the picker is dismissed, the conversation state returns to Idle, and the reply is identical to the /cancel command response; no metric is selected and no command is executed.
 
 ## Notes
 

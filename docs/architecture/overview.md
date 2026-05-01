@@ -11,7 +11,7 @@ refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
   - {doc: uc-16, version: 0.1}
-updated: 2026-04-28
+updated: 2026-05-01
 tags: [project-docs, architecture]
 ---
 
@@ -104,7 +104,7 @@ graph TB
 | Component | FRs handled | Key architectural pattern |
 |---|---|---|
 | Telegram Gateway | All I/O | aiogram webhook; retry 3× on auth failure then halt ([[adr-002-telegram-gateway|ADR-002]]) |
-| Message Dispatcher | FR3, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31 | Consults USG ConversationState before intent classification; routes both text Message and CallbackQuery events; callback_data encodes action type + metric_id per [[adr-013-inline-keyboard-callback-routing|ADR-013]] |
+| Message Dispatcher | FR3, FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32 | Consults USG ConversationState before intent classification; routes both text Message and CallbackQuery events; callback_data encodes action type + metric_id per [[adr-013-inline-keyboard-callback-routing|ADR-013]] |
 | User Session Guard | FR2, FR3, FR29, FR30 | Owns per-user ConversationState including PendingMetricPicker and PendingPickerValue states; account status gate; allowlist placeholder |
 | Account Manager | FR1, FR16, FR17 | Idempotent registration; coordinates ParseAttempt Manager on PendingDeletion |
 | Entry Processor | FR4, FR6, FR30 | NLP → metric lookup → atomic Entry write; periodicity prompt flow; post-picker value entry (FR30: metric pre-resolved from state_data) |
@@ -171,13 +171,13 @@ graph TB
 - **Bot access control:** Currently open — any Telegram user can register. USG contains a named allowlist check-point placeholder. Must add allowlist before any public release beyond the ~10-user cohort.
 - **No personal data:** DM1 stores only opaque `internal_user_id`; no Telegram name, username, or phone ever written (BR5).
 - **Metric name TOCTOU:** Eliminated by DB UniqueConstraint ([[adr-011-metric-name-uniqueness|ADR-011]]); application performs no pre-insert check.
-- **Callback data integrity:** Picker callback_data encodes metric_id (UUID) and action type; handler validates metric_id belongs to the requesting user before proceeding ([[adr-013-inline-keyboard-callback-routing|ADR-013]]); stale or replayed callbacks are rejected if ConversationState ≠ PendingMetricPicker (UC16 E3).
+- **Callback data integrity:** Picker callback_data encodes action type and (for `pick:`) metric_id (UUID); handler validates metric_id belongs to the requesting user before proceeding ([[adr-013-inline-keyboard-callback-routing|ADR-013]]); stale or replayed non-cancel callbacks are rejected if ConversationState ≠ PendingMetricPicker (UC16 E3); `callback_data = "cancel"` always routes to the FR31/FR32 Idle transition regardless of state (FR32). This bypass is intentional — the worst-case outcome from any non-Idle state is a harmless Idle reset with no data mutation and no command executed.
 
 ## Observability
 
 - **Structured logs:** structlog (JSON) → stderr; Railway captures and retains.
 - **Event store:** ObservabilityEvent rows in PostgreSQL — all five business success metrics computable from SQL queries against this table.
-- **Key event types:** `registration_event`, `parse_outcome_event`, `alert_evaluation_event`, `chart_delivery_event`, `account_lifecycle_event`, `cascade_deletion_event`, `scheduler_heartbeat`, `token_auth_failure_event`, `conversation_state_event`, `periodicity_prompt_event`, `picker_invocation_event`.
+- **Key event types:** `registration_event`, `parse_outcome_event`, `alert_evaluation_event`, `chart_delivery_event`, `account_lifecycle_event`, `cascade_deletion_event`, `scheduler_heartbeat`, `token_auth_failure_event`, `conversation_state_event` (includes FR31/FR32 cancel transitions), `periodicity_prompt_event`, `picker_invocation_event`.
 - **Health signal (webhook mode):** absence of webhook deliveries beyond a configured interval → Railway health check failure → restart.
 - **Key SLOs:** `parse_success_rate` >85%; `entry_ack_latency_ms` ≤5,000; `chart_delivery_latency_ms` ≤30,000; `bot_uptime` ≥95% monthly; `active_users_count` pushed on each Entry write; `picker_keyboard_latency_ms` ≤5,000 (NFR18).
 
@@ -257,7 +257,7 @@ Key component-level interaction patterns. Full use case detail in UC files.
 | G Late categorization | /deferred_categorize | ParseAttempt Manager → Entry Processor → DB; entry_timestamp = original time | Sync; preserves chronological integrity |
 | H Metric archival/reactivation | /metric_archive, /metric_reactivate | Metric Manager → DB; alert evaluation suspension/resume | Clean state transition; no cascade |
 | I Compound first-contact | New user; first message is parseable entry | Account Manager → DB (register) → Entry Processor → NLP (compound) | Sequential: onboarding atomic first; entry processing secondary |
-| J Metric Picker | Bare/fuzzy command; no exact metric name match | Gateway → Dispatcher (CallbackQuery route per ADR-013) → USG (PendingMetricPicker state) → NLP Engine (fuzzy lookup) → DB (recency-ordered metric catalog) → Gateway (inline keyboard); on selection: Dispatcher (CallbackQuery) → USG → Entry Processor (logging) or Metric Manager (management) | Sync state machine with inline keyboard callback; callback_data encodes action type + metric_id |
+| J Metric Picker | Bare/fuzzy command; no exact metric name match | Gateway → Dispatcher (CallbackQuery route per ADR-013) → USG (PendingMetricPicker state) → NLP Engine (fuzzy lookup) → DB (recency-ordered metric catalog) → Gateway (inline keyboard); on selection: Dispatcher (CallbackQuery) → USG → Entry Processor (logging) or Metric Manager (management) | Sync state machine with inline keyboard callback; callback_data encodes action type + metric_id; Cancel button on any picker keyboard → FR31/FR32 Idle path, no DB ownership check ([[adr-013-inline-keyboard-callback-routing|ADR-013]]) |
 
 <!-- custom section -->
 

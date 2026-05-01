@@ -3,13 +3,13 @@ run_mode: full
 stages_requested: [ba, sa, arch, pm]
 feature_name: smart-metric-picker
 skipped_stages: []
-stage: done
-last_agent: human
-last_score: 8.2
-last_score_at: 2026-04-28T01:00Z
-ba_score: 8.2
-sa_score: 8.5
-arch_score: 8.2
+stage: arch-approved
+last_agent: architect-reviewer
+last_score: 9.0
+last_score_at: 2026-05-01T00:10Z
+ba_score: 8.70
+sa_score: 9.1
+arch_score: 9.0
 arch_reviewed_by: architect-reviewer
 plan_approved_by: human
 plan_approved_at: 2026-04-29
@@ -25,6 +25,8 @@ versions:
   plan: 0.1
   plan_feature: 0.1
 open_questions: [Q1, Q2, Q3, Q4, Q5]
-sa_readiness: "Partially Ready — FR22–FR30 traceable, NFR18 measurable, DM6 updated, UC16 complete; 3 minor open questions (Q10 free-text-in-picker behavior, Q11 last-3-values message format, Q12 PendingPeriodicity reuse confirmation) that architect can work around with current defaults"
+sa_readiness: "Approved (delta) — FR32 Cancel button on picker keyboard traceable to R19/US8/AC8.12; UC16 A6 covers all PendingMetricPicker Cancel paths; 2 minor open items carried forward: F2 (Cancel button routing from PendingPickerValue state unspecified — resolve before callback router implementation), F1 (DM6 diagram arc label missing FR32 — quick fix)"
+arch_readiness: "Approved (delta) — ADR-013 cancel bypass well-specified; NFR18/NFR6/NFR4 all preserved; 3 minor documentation gaps (F3 threat model note, F7 Flow J cancel branch, F9 conversation_state_event annotation) — address before implementation but do not block."
 activities: [logging, management, analytics, alerting, account, discovery, General]
 human_overrides: []
+reviewed_by: architect-reviewer

@@ -9,7 +9,7 @@ score: null
 activities: [logging, management, analytics, alerting, account, discovery, General]
 refs:
   - {doc: brd, version: 0.1}
-updated: 2026-04-28
+updated: 2026-05-01
 tags: [project-docs, srs]
 ---
 
@@ -47,9 +47,10 @@ Single-process Telegram bot that receives free-text messages from registered use
 - FR26 [should] @logging @management Last-3-values context: immediately after the user selects a metric via the inline picker in any metric-name-required command, the system displays the last 3 recorded entry values for that metric (or fewer if fewer exist; "no entries yet" note if count = 0) as context **in the same message as the selection confirmation** before proceeding with the command; this applies to ALL metric-name-required commands, not only the logging flow <- [[brd#R16|R16 Last-3-values context]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
 - FR27 [must] @logging Create button on logging zero-match: when the picker is triggered in the logging/entry flow (free-text entry, not a management command) and rapidfuzz returns zero matches for the typed metric name, display an explicit "Create [typed_name]" inline button instead of metric choices; pressing the button leads to the existing periodicity selection and atomic create flow (FR6) with the typed name pre-filled; no metric is created before the button is pressed; no auto-creation <- [[brd#R17|R17 Create button on zero-match]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
 - FR28 [must] @management Management zero-match message: when the picker is triggered for a management command (`/chart`, `/alert_set`, `/metric_archive`, `/metric_reactivate`, `/metric_delete`) and rapidfuzz returns zero matches for the supplied metric name, respond with a "no matching metrics found" informational message; no picker keyboard displayed; no Create button offered; command not executed <- [[brd#R18|R18 Management zero-match]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
-- FR29 [must] @logging @management PendingMetricPicker state routing and timeout: ConversationState = PendingMetricPicker is set when the picker keyboard is displayed; `state_data` stores `{command_context, typed_name}` to differentiate originating command after selection; at most one active picker per user at any time (BR13); if user does not interact within SU-009 (24h default), Scheduled Process clears state to Idle and notifies user of cancellation; inline button callback received in this state routes to FR26 → then to originating command flow (UC2 for logging; UC6/UC7/UC8/UC10 for management) <- Q-FEAT-1 resolved, [[us-8-metric-picker|US8 Select a metric via inline picker]]
+- FR29 [must] @logging @management PendingMetricPicker state routing and timeout: ConversationState = PendingMetricPicker is set when the picker keyboard is displayed; `state_data` stores `{command_context, typed_name}` to differentiate originating command after selection; at most one active picker per user at any time (BR13); if user does not interact within SU-009 (24h default), Scheduled Process clears state to Idle and notifies user of cancellation; inline button callback received in this state routes to FR26 → then to originating command flow (UC2 for logging; UC6/UC7/UC8/UC10 for management); pressing the inline Cancel button (`callback_data = "cancel"`) produces the same outcome as FR31 <- Q-FEAT-1 resolved, [[us-8-metric-picker|US8 Select a metric via inline picker]]
 - FR30 [must] @logging PendingPickerValue state routing and timeout: after the user selects a metric via the picker in the logging/entry flow (i.e., `command_context = logging`), and FR26 has displayed last-3-values, ConversationState transitions to PendingPickerValue; `state_data` stores `{metric_id, metric_name}`; system awaits a numeric value message; value received → Entry created atomically (FR4 path); validation failure → user re-prompted; timeout SU-009 (24h) → Scheduled Process clears state to Idle; PendingPickerValue is distinct from Idle+FR4 because metric is pre-resolved and routing/validation differ <- Q-FEAT-2 resolved, [[us-8-metric-picker|US8 Select a metric via inline picker]]
 - FR31 [must] @General `/cancel` command — when ConversationState ≠ Idle, sets ConversationState to Idle and clears `state_data`, dispatches "Cancelled. You're back to the main menu."; when ConversationState = Idle, dispatches "Nothing to cancel." with no state change; no committed data is rolled back; applies to all non-Idle states; listed in `/help` (FR19); pre-existing implementation discovered as undocumented during smart-metric-picker feature addition <- [[brd#G1|G1 Reduce tracking abandonment]]
+- FR32 [must] @logging @management Cancel button on picker keyboard — every picker keyboard display (bare command, fuzzy match, overflow expansion, and zero-match Create-button display) includes a Cancel button as the last inline button; pressing it produces an outcome identical to FR31 (`/cancel`): ConversationState → Idle, `state_data` cleared, reply = "Cancelled. You're back to the main menu."; `callback_data = "cancel"` (6 bytes); this routing applies when ConversationState is any non-Idle state (not only PendingMetricPicker) — consistent with FR31 which covers all non-Idle states <- [[brd#R19|R19 Cancel button in picker keyboard]], [[us-8-metric-picker|US8 Select a metric via inline picker]]
 
 # Non-Functional Requirements
 
@@ -191,6 +192,7 @@ Telegram bot interface — no REST API. All interaction is via Telegram messages
 | `/cancel` | active | None | "Cancelled. You're back to the main menu." | "Nothing to cancel." (if already Idle) | FR31 |
 | (inline button — metric selection) | active | Callback data: `{picker_metric_id}` — user presses a metric name button; routed when ConversationState = PendingMetricPicker | Last-3-values + selection confirmation in one message (FR26) → originating command proceeds | Expired session / dispatch error | FR26, FR29, FR30 |
 | (inline button — Create metric) | active | Callback data: `{action: "create", typed_name: "<str>"}` — user presses "Create [typed_name]" button; logging zero-match flow only; routed when ConversationState = PendingMetricPicker | Periodicity prompt (FR6 path begins) | — | FR27 |
+| (inline button — Cancel picker) | active | Callback data: `"cancel"` — user presses Cancel button on any picker keyboard; routed when ConversationState = PendingMetricPicker | "Cancelled. You're back to the main menu." (same as FR31) | — | FR31, FR32 |
 
 # Use Cases
 
@@ -213,7 +215,7 @@ Source: [[use-case-diagram|use-case-diagram.puml]]
 - [[uc-13-restore-account|UC13 Restore account]] <- FR17, FR2, @account
 - [[uc-14-request-help|UC14 Request help]] <- FR19, @discovery
 - [[uc-15-manage-alerts|UC15 List and delete alerts]] <- FR20, FR21, @management
-- [[uc-16-select-metric-picker|UC16 Select metric via inline picker]] <- FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, @logging, @management
+- [[uc-16-select-metric-picker|UC16 Select metric via inline picker]] <- FR22, FR23, FR24, FR25, FR26, FR27, FR28, FR29, FR30, FR31, FR32, @logging, @management
 
 # State Machines
 
@@ -285,10 +287,10 @@ stateDiagram-v2
   PendingPeriodicity --> Idle : confirmed / SU-009 timeout / FR31
   PendingMetricDeletionConfirmation --> Idle : confirmed / cancelled / FR31
   PendingRestorationConfirmation --> Idle : confirmed / not confirmed / FR31
-  PendingMetricPicker --> Idle : timeout / error / management done / FR31
+  PendingMetricPicker --> Idle : timeout / error / management done / FR31 / FR32
   PendingMetricPicker --> PendingPickerValue : FR29 metric selected (logging)
   PendingMetricPicker --> PendingPeriodicity : FR27 Create button (logging zero-match)
-  PendingPickerValue --> Idle : value received FR30 / timeout / FR31
+  PendingPickerValue --> Idle : value received FR30 / timeout / FR31 / FR32
   note right of PendingPeriodicity : Metric not written until periodicity confirmed
   note right of PendingMetricPicker : Stores command_context and typed_name. Max one per user (BR13).
   note right of PendingPickerValue : Stores metric_id and metric_name. Awaits numeric value.

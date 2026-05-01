@@ -12,13 +12,13 @@ refs:
   - {doc: brd, version: 0.1}
   - {doc: srs, version: 0.1}
   - {doc: feat-smart-metric-picker, version: 0.1}
-updated: 2026-04-28
+updated: 2026-05-01
 tags: [project-docs, use-case]
 ---
 
 # UC16: Select metric via inline picker
 
-Traces to [[srs#FR22|FR22 Picker bare-command trigger]], [[srs#FR23|FR23 Picker fuzzy-name trigger]], [[srs#FR24|FR24 Recency ordering]], [[srs#FR25|FR25 Overflow "Show all fits"]], [[srs#FR26|FR26 Last-3-values context]], [[srs#FR27|FR27 Create button zero-match logging]], [[srs#FR28|FR28 Management zero-match message]], [[srs#FR29|FR29 PendingMetricPicker state]], [[srs#FR30|FR30 PendingPickerValue state]]. User story: [[us-8-metric-picker|US8 Select a metric via inline picker]].
+Traces to [[srs#FR22|FR22 Picker bare-command trigger]], [[srs#FR23|FR23 Picker fuzzy-name trigger]], [[srs#FR24|FR24 Recency ordering]], [[srs#FR25|FR25 Overflow "Show all fits"]], [[srs#FR26|FR26 Last-3-values context]], [[srs#FR27|FR27 Create button zero-match logging]], [[srs#FR28|FR28 Management zero-match message]], [[srs#FR29|FR29 PendingMetricPicker state]], [[srs#FR30|FR30 PendingPickerValue state]], [[srs#FR32|FR32 Cancel button on picker keyboard]]. User story: [[us-8-metric-picker|US8 Select a metric via inline picker]].
 
 Activity tags: `@logging`, `@management`
 
@@ -57,6 +57,7 @@ Activity tags: `@logging`, `@management`
 - ConversationState → Idle.
 - No entry stored; no command executed.
 - User informed of cancellation.
+- Cancel button pressed on picker keyboard: same as /cancel (FR31, FR32) — ConversationState → Idle; no entry stored; no command executed; reply = "Cancelled. You're back to the main menu."
 
 ### On management zero-match
 - ConversationState remains Idle.
@@ -72,7 +73,7 @@ Activity tags: `@logging`, `@management`
 5. If total metrics > 4: display top 4 + "Show all fits" button (FR25). Otherwise display all.
 6. Picker keyboard sent to user as inline keyboard message. `command_context` and `typed_name = null` stored in `state_data`.
 7. ConversationState → PendingMetricPicker (FR29).
-8. User presses a metric button → step 9. (If user presses "Show all fits" → A1. If user does not respond → A4.)
+8. User presses a metric button → step 9. (If user presses "Show all fits" → A1. If user does not respond → A4. If user presses Cancel button → A6.)
 9. Metric Picker Engine identifies selected metric by `metric_id` from callback data.
 10. Last-3-values context assembled: fetch up to 3 most recent Entries for `(internal_user_id, metric_id)`; format as readable summary ("no entries yet" if count = 0).
 11. Selection confirmation + last-3-values context dispatched as a **single message** (FR26, Q11 resolved).
@@ -92,7 +93,7 @@ Activity tags: `@logging`, `@management`
 5. If zero matches:
    - `command_context = logging`: FR27 — display "Create [typed_name]" inline button. ConversationState → PendingMetricPicker, `state_data = {command_context: "logging", typed_name: "<typed>"}`. → A2.
    - `command_context = management command`: FR28 — dispatch "No matching metrics found" message. ConversationState remains Idle. UC ends.
-6. User presses a metric button → steps 9–12 of Main flow T1. (If user presses "Show all fits" → A1. If user does not respond → A4.)
+6. User presses a metric button → steps 9–12 of Main flow T1. (If user presses "Show all fits" → A1. If user does not respond → A4. If user presses Cancel button → A6.)
 
 ## Alternative flows
 
@@ -101,6 +102,7 @@ Branches from step 5 of T1 or step 4 of T2.
 1. Metric Picker Engine fetches full matching metric list (all user metrics for bare command; all fuzzy matches for typed name).
 2. Current message replaced with full inline keyboard listing all metrics in FR24 order.
 3. State remains PendingMetricPicker. User proceeds with metric selection as in step 8 of T1 main flow.
+4. Cancel button remains present on the expanded keyboard; pressing it → A6.
 
 ### A2 Create button pressed — logging zero-match (FR27)
 Branches from T2 step 5 (`command_context = logging`).
@@ -109,6 +111,7 @@ Branches from T2 step 5 (`command_context = logging`).
 3. Metric Picker Engine passes `typed_name` pre-filled to periodicity prompt: "New metric `[typed_name]` — tracked daily or weekly?"
 4. FR6 flow continues unchanged: periodicity confirmed → Metric + Entry created atomically.
 5. ConversationState → Idle on periodicity confirmation or SU-009 timeout.
+6. Cancel button is present alongside the Create button; pressing it → A6.
 
 ### A3 PendingPickerValue — value received (logging flow post-selection)
 Branches from step 12 of T1/T2 main flow, `command_context = logging`.
@@ -131,6 +134,15 @@ Branches from T1 step 3.
 2. Message dispatched: "You have no metrics yet. Send a free-text message like `mood 7` to create your first metric."
 3. ConversationState remains Idle. No picker displayed.
 
+### A6 Cancel button pressed on picker keyboard (FR32)
+Branches from T1 step 8, T2 step 4 or 6, A1, A2, or any non-Idle ConversationState (e.g., PendingPickerValue — stale picker keyboard still visible).
+1. User presses the Cancel button (`callback_data = "cancel"`) on the picker keyboard.
+2. Callback handler calls `answer_callback_query` unconditionally (ADR-013).
+3. Picker keyboard message is edited to remove the inline keyboard (reply_markup set to null); on Telegram edit failure, log error and continue — cancellation proceeds regardless.
+4. ConversationState → Idle. `state_data` cleared.
+5. Reply dispatched: "Cancelled. You're back to the main menu." (identical to FR31 outcome).
+6. No metric selected. No entry stored. No command executed.
+
 ## Error paths
 
 ### E1 Picker keyboard dispatch fails
@@ -144,7 +156,8 @@ Branches from T1 step 3.
 
 ### E3 Inline callback received in unexpected state
 - Detected at: callback handler — ConversationState ≠ PendingMetricPicker.
-- System response: stale or duplicate callback; ignored or user notified "Session expired. Please re-issue the command."
+- Exception: `callback_data = "cancel"` is routed to the FR31/FR32 Idle-transition path from ANY non-Idle ConversationState (including PendingPickerValue); it is never treated as stale.
+- System response for non-cancel callbacks: stale or duplicate callback; ignored or user notified "Session expired. Please re-issue the command."
 
 ### E4 Non-numeric value received in PendingPickerValue (A3 step 3)
 - System response: "Please enter a numeric value (e.g., `7` or `82.5`)." ConversationState remains PendingPickerValue. User re-prompted. Timeout still applies.

@@ -9,7 +9,7 @@ score: null
 activities: [logging, management, analytics, alerting, account, discovery, General]
 refs:
   - {doc: initial_task_setup, version: 1}
-updated: 2026-04-26
+updated: 2026-05-01
 tags: [project-docs, brd]
 ---
 
@@ -69,6 +69,7 @@ This is an educational and portfolio project with no monetization intent. Succes
 - R16 [should] @logging @management After a user selects a metric via the inline picker in any metric-name-required command, the system displays the last 3 recorded values for that metric (or fewer if fewer exist, with a "no entries yet" note when count is zero) as context before proceeding with the command; in the logging/entry flow this is additionally followed by a prompt for a new value <- G1, G2
 - R17 [must] @logging When the picker in the logging/entry flow finds zero fuzzy matches for a typed metric name, the system presents an explicit "Create [typed_name]" inline button instead of metric choices; pressing it initiates the periodicity selection and creation flow (R2) with the typed name pre-filled <- G1
 - R18 [must] @management When the picker in any metric-name-required management command (`/chart`, `/alert_set`, `/metric_archive`, `/metric_reactivate`, `/metric_delete`) finds zero fuzzy matches for a supplied metric name, the system responds with a "no matching metrics found" message and does not execute the command; no "Create" button is offered <- G1
+- R19 [must] @logging @management Every picker keyboard display (bare command, fuzzy match, overflow expansion, and zero-match Create-button display) includes a Cancel button as the last button; pressing it dismisses the picker, returns the user to Idle state, and produces the same reply text as the /cancel command <- G1
 
 # User Stories
 
@@ -79,7 +80,7 @@ This is an educational and portfolio project with no monetization intent. Succes
 - [[us-5-set-alerts|US5 Set and manage threshold alerts]] <- R5, @alerting
 - [[us-6-manage-account|US6 Manage account]] <- R7, R8, R9, R11, @account
 - [[us-7-discover-commands|US7 Discover available commands]] <- R10, @discovery
-- [[us-8-metric-picker|US8 Select a metric via inline picker]] <- R12, R13, R14, R15, R16, R17, R18, @logging, @management
+- [[us-8-metric-picker|US8 Select a metric via inline picker]] <- R12, R13, R14, R15, R16, R17, R18, R19, @logging, @management
 
 # Glossary
 
