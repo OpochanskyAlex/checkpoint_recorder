@@ -3,10 +3,12 @@ Inline keyboard CallbackQuery handler for the smart-metric-picker (ADR-013).
 
 Routing rules:
   1. answer_callback_query() called unconditionally (ADR-013 Decision step 5).
-  2. ConversationState gate: must be PendingMetricPicker, else E3 (session expired).
-  3. Account status check: PendingDeletion/Deleted → silent dismiss.
-  4. callback_data dispatch: pick:<uuid> | create:<name> | showfits
-  5. Ownership validation before any metric action (ADR-013 Decision step 4).
+  2. cancel bypass: callback_data="cancel" routes to Idle from any non-Idle state
+     WITHOUT going through the state gate (FR32, ADR-013 Decision step 3).
+  3. ConversationState gate: must be PendingMetricPicker, else E3 (session expired).
+  4. Account status check: PendingDeletion/Deleted → silent dismiss.
+  5. callback_data dispatch: pick:<uuid> | create:<name> | showfits
+  6. Ownership validation before any metric action (ADR-013 Decision step 4).
 """
 import uuid
 
@@ -49,20 +51,24 @@ async def handle_picker_callback(
     # Step 1: always answer to clear Telegram's loading spinner (ADR-013)
     await callback.answer()
 
-    # Step 2: state gate — reject stale/unexpected callbacks (UC16 E3)
+    data: str = callback.data or ""
+    # Step 2: cancel bypasses the state gate — routes to Idle from any non-Idle state (FR32)
+    if data == "cancel":
+        await _handle_cancel(callback, conv_state, session)
+        return
+
+    # Step 3: state gate — reject stale/unexpected callbacks (UC16 E3)
     if conv_state.state != ConversationStateEnum.PendingMetricPicker:
         await callback.message.answer(
             "Session expired. Please re-issue the command."
         )
         return
 
-    # Step 3: account status gate (edge case: PendingDeletion user pressed old button)
+    # Step 4: account status gate (edge case: PendingDeletion user pressed old button)
     if user.account_status != AccountStatus.Active:
         return
 
-    data: str = callback.data or ""
-
-    # Step 4: route by callback_data prefix
+    # Step 5: route by callback_data prefix
     if data == "showfits":
         await _handle_show_fits(callback, conv_state, session, user)
     elif data.startswith("create:"):
@@ -72,6 +78,23 @@ async def handle_picker_callback(
     else:
         log.warning("picker_unknown_callback", data=data, user_id=str(user.id))
         await callback.message.answer("Unknown action. Please try again.")
+
+
+async def _handle_cancel(
+    callback: CallbackQuery,
+    conv_state: ConversationState,
+    session: AsyncSession,
+) -> None:
+    """Cancel button pressed — dismiss picker keyboard, return to Idle (FR32, UC16 A6)."""
+    try:
+        await callback.message.edit_reply_markup(reply_markup=None)
+    except Exception:
+        log.warning("picker_cancel_edit_failed", message_id=callback.message.message_id)
+
+    conv_state.state = ConversationStateEnum.Idle
+    conv_state.state_data = None
+    await session.commit()
+    await callback.message.answer("Cancelled. You're back to the main menu.")
 
 
 async def _handle_show_fits(
