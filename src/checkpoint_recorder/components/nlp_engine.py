@@ -15,7 +15,10 @@ import re
 from dataclasses import dataclass, field
 from typing import Literal
 
+import structlog
 from rapidfuzz import fuzz, process as fuzz_process
+
+log = structlog.get_logger()
 
 _NUMBER_RE = re.compile(r"\b(\d+(?:[.,]\d+)?)\b")
 
@@ -125,7 +128,16 @@ def parse(text: str, known_metrics: list[str], threshold: float) -> ParseResult:
         if all_results:
             best_name, best_score, _ = all_results[0]
             if best_score >= _SAME_METRIC_SIMILARITY:
-                # Confident match to an existing metric
+                # Check for multiple high-confidence matches — picking silently would be wrong
+                high_conf = [name for name, score, _ in all_results if score >= _SAME_METRIC_SIMILARITY]
+                if len(high_conf) > 1:
+                    return ParseResult(
+                        metric_name=name_candidate,
+                        value=value,
+                        confidence=confidence,
+                        outcome="ambiguous",
+                        candidate_metrics=high_conf,
+                    )
                 return ParseResult(
                     metric_name=best_name,
                     value=value,

@@ -80,8 +80,45 @@ async def process_entry(
             None,
         )
 
+    print(f"[EP] outcome={result.outcome!r} metric_name={result.metric_name!r} candidates={result.candidate_metrics}")
     if result.outcome == "ambiguous":
-        # Create ParseAttempt + enter PendingDisambiguation state (FR-5)
+        # When the picker is active and all candidates are existing metrics,
+        # show the picker keyboard instead of text-based disambiguation.
+        if settings.fuzzy_match_threshold > 0 and result.candidate_metrics:
+            from checkpoint_recorder.components.picker_keyboard import build_picker_keyboard
+            all_metrics = await get_metrics_ordered_by_recency(session, user.id)
+            candidate_set = set(result.candidate_metrics)
+            matching = [m for m in all_metrics if m.name in candidate_set]
+            if matching:
+                conv_state.state = ConversationStateEnum.PendingMetricPicker
+                conv_state.state_data = {
+                    "command_context": "logging",
+                    "typed_name": result.metric_name,
+                    "pending_value": result.value,
+                    "original_timestamp": message_date.isoformat(),
+                    "raw_input": text,
+                }
+                await session.commit()
+                await observability.emit(
+                    session,
+                    "picker_invocation_event",
+                    {
+                        "user_id": str(user.id),
+                        "command_context": "logging",
+                        "trigger_type": "ambiguous",
+                        "matched_count": len(matching),
+                        "typed_name_present": True,
+                    },
+                )
+                await session.commit()
+                keyboard = build_picker_keyboard(matching)
+                return (
+                    f'Multiple metrics match "<b>{result.metric_name}</b>". Which one?',
+                    False,
+                    keyboard,
+                )
+
+        # Fallback: text-based ParseAttempt disambiguation (FR-5)
         pa, error = await create_parse_attempt(
             session, user, text, result.candidate_metrics
         )
